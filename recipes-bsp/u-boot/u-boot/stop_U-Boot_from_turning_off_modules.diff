@@ -1,0 +1,17 @@
+diff --git a/drivers/clk/renesas/renesas-cpg-mssr.c b/drivers/clk/renesas/renesas-cpg-mssr.c
+index 7698613877..1743a48a24 100644
+--- a/drivers/clk/renesas/renesas-cpg-mssr.c
++++ b/drivers/clk/renesas/renesas-cpg-mssr.c
+@@ -165,9 +165,12 @@ int renesas_clk_remove(void __iomem *base, struct cpg_mssr_info *info)
+ 		clrsetbits_le32(base + SMSTPCR(i),
+ 				info->mstp_table[i].sdis,
+ 				info->mstp_table[i].sen);
++#ifdef RCAR_GEN3_CA57_ONLY
++		/* U-Boot should not touch the Realtime clocks */
+ 		clrsetbits_le32(base + RMSTPCR(i),
+ 				info->mstp_table[i].rdis,
+ 				info->mstp_table[i].ren);
++#endif
+ 	}
+ 
+ 	return 0;

@@ -1,0 +1,15 @@
+diff --git a/plat/renesas/rcar/bl2_secure_setting.c b/plat/renesas/rcar/bl2_secure_setting.c
+index 24697806..8a20cdd2 100644
+--- a/plat/renesas/rcar/bl2_secure_setting.c
++++ b/plat/renesas/rcar/bl2_secure_setting.c
+@@ -24,8 +24,8 @@ static const struct {
+ 
+ 	/* Security attribute setting for master ports */
+ 	/* Bit 0: ARM realtime core (Cortex-R7) master port. */
+-	/*       0: Non-Secure */
+-	{SEC_SRC,		0x0000001EU},
++	/*       1: Secure */
++	{SEC_SRC,		0x0000001FU},
+ 
+ 	/** Security attribute setting for slave ports 0 */
+ 	/*	{SEC_SEL0,		0xFFFFFFFFU},*/
