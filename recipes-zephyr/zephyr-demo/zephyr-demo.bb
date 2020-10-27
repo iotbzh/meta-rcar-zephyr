@@ -5,11 +5,13 @@ LIC_FILES_CHKSUM = "file://${COREBASE}/meta/COPYING.MIT;md5=3da9cfbcb788c80a0384
 SRC_URI_ebisu = " \
 	file://ebisu/button-demo.bin \
 	file://ebisu/blinky-demo.bin \
+	file://ebisu/zephyr_openamp_rsc_table-demo.bin \
 "
 
 SRC_URI_ulcb = " \
 	file://ulcb/button-demo.bin \
 	file://ulcb/blinky-demo.bin \
+	file://ulcb/zephyr_openamp_rsc_table-demo.bin \
 "
 
 TARG_ebisu = "ebisu"
