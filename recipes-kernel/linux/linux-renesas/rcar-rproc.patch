@@ -1,0 +1,1737 @@
+From 306efce6fd190e4cd09997dd8965f6268718a56d Mon Sep 17 00:00:00 2001
+From: Mathieu Poirier <mathieu.poirier@linaro.org>
+Date: Tue, 14 Jul 2020 13:50:27 -0600
+Subject: [PATCH 01/15] remoteproc: Add new RPROC_DETACHED state
+
+Add a new RPROC_DETACHED state to take into account scenarios
+where the remoteproc core needs to attach to a remote processor
+that is booted by another entity.
+
+Signed-off-by: Mathieu Poirier <mathieu.poirier@linaro.org>
+Reviewed-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+Tested-by: Arnaud Pouliquen <arnaud.pouliquen@st.com>
+Link: https://lore.kernel.org/r/20200714195035.1426873-2-mathieu.poirier@linaro.org
+Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+---
+ drivers/remoteproc/remoteproc_sysfs.c | 1 +
+ include/linux/remoteproc.h            | 5 ++++-
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/remoteproc/remoteproc_sysfs.c b/drivers/remoteproc/remoteproc_sysfs.c
+index 7f8536b73295..8b462c501465 100644
+--- a/drivers/remoteproc/remoteproc_sysfs.c
++++ b/drivers/remoteproc/remoteproc_sysfs.c
+@@ -71,6 +71,7 @@ static const char * const rproc_state_string[] = {
+ 	[RPROC_RUNNING]		= "running",
+ 	[RPROC_CRASHED]		= "crashed",
+ 	[RPROC_DELETED]		= "deleted",
++	[RPROC_DETACHED]	= "detached",
+ 	[RPROC_LAST]		= "invalid",
+ };
+ 
+diff --git a/include/linux/remoteproc.h b/include/linux/remoteproc.h
+index 16ad66683ad0..33685ba94944 100644
+--- a/include/linux/remoteproc.h
++++ b/include/linux/remoteproc.h
+@@ -393,6 +393,8 @@ struct rproc_ops {
+  * @RPROC_RUNNING:	device is up and running
+  * @RPROC_CRASHED:	device has crashed; need to start recovery
+  * @RPROC_DELETED:	device is deleted
++ * @RPROC_DETACHED:	device has been booted by another entity and waiting
++ *			for the core to attach to it
+  * @RPROC_LAST:		just keep this one at the end
+  *
+  * Please note that the values of these states are used as indices
+@@ -407,7 +409,8 @@ enum rproc_state {
+ 	RPROC_RUNNING	= 2,
+ 	RPROC_CRASHED	= 3,
+ 	RPROC_DELETED	= 4,
+-	RPROC_LAST	= 5,
++	RPROC_DETACHED	= 5,
++	RPROC_LAST	= 6,
+ };
+ 
+ /**
+-- 
+2.26.2
+
+
+From 25e929cb7209a29f2b1f54c4c1d841f7c8ca7c32 Mon Sep 17 00:00:00 2001
+From: Julien Massot <julien.massot@iot.bzh>
+Date: Mon, 26 Oct 2020 10:50:53 +0100
+Subject: [PATCH 02/15] remoteproc: Add new attach() remoteproc operation
+
+Add an new attach() operation in order to properly deal with
+scenarios where the remoteproc core needs to attach to a
+remote processor that has been booted by another entity.
+
+Signed-off-by: Mathieu Poirier <mathieu.poirier@linaro.org>
+Reviewed-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+Tested-by: Arnaud Pouliquen <arnaud.pouliquen@st.com>
+Link: https://lore.kernel.org/r/20200714195035.1426873-3-mathieu.poirier@linaro.org
+Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+
+# Conflicts:
+#	drivers/remoteproc/remoteproc_internal.h
+---
+ drivers/remoteproc/remoteproc_internal.h | 24 ++++++++++++++++++++++++
+ include/linux/remoteproc.h               |  2 ++
+ 2 files changed, 26 insertions(+)
+
+diff --git a/drivers/remoteproc/remoteproc_internal.h b/drivers/remoteproc/remoteproc_internal.h
+index 493ef9262411..3ffa2535c465 100644
+--- a/drivers/remoteproc/remoteproc_internal.h
++++ b/drivers/remoteproc/remoteproc_internal.h
+@@ -63,6 +63,30 @@ struct resource_table *rproc_elf_find_loaded_rsc_table(struct rproc *rproc,
+ struct rproc_mem_entry *
+ rproc_find_carveout_by_name(struct rproc *rproc, const char *name, ...);
+ 
++static inline int rproc_prepare_device(struct rproc *rproc)
++{
++	if (rproc->ops->prepare)
++		return rproc->ops->prepare(rproc);
++
++	return 0;
++}
++
++static inline int rproc_unprepare_device(struct rproc *rproc)
++{
++	if (rproc->ops->unprepare)
++		return rproc->ops->unprepare(rproc);
++
++	return 0;
++}
++
++static inline int rproc_attach_device(struct rproc *rproc)
++{
++	if (rproc->ops->attach)
++		return rproc->ops->attach(rproc);
++
++	return 0;
++}
++
+ static inline
+ int rproc_fw_sanity_check(struct rproc *rproc, const struct firmware *fw)
+ {
+diff --git a/include/linux/remoteproc.h b/include/linux/remoteproc.h
+index 33685ba94944..4363a46e213f 100644
+--- a/include/linux/remoteproc.h
++++ b/include/linux/remoteproc.h
+@@ -357,6 +357,7 @@ enum rsc_handling_status {
+  * struct rproc_ops - platform-specific device handlers
+  * @start:	power on the device and boot it
+  * @stop:	power off the device
++ * @attach:	attach to a device that his already powered up
+  * @kick:	kick a virtqueue (virtqueue id given as a parameter)
+  * @da_to_va:	optional platform hook to perform address translations
+  * @parse_fw:	parse firmware to extract information (e.g. resource table)
+@@ -373,6 +374,7 @@ enum rsc_handling_status {
+ struct rproc_ops {
+ 	int (*start)(struct rproc *rproc);
+ 	int (*stop)(struct rproc *rproc);
++	int (*attach)(struct rproc *rproc);
+ 	void (*kick)(struct rproc *rproc, int vqid);
+ 	void * (*da_to_va)(struct rproc *rproc, u64 da, int len);
+ 	int (*parse_fw)(struct rproc *rproc, const struct firmware *fw);
+-- 
+2.26.2
+
+
+From 86f471d0d86a9080916a186cad179f55fa39d4cb Mon Sep 17 00:00:00 2001
+From: Mathieu Poirier <mathieu.poirier@linaro.org>
+Date: Tue, 14 Jul 2020 13:50:29 -0600
+Subject: [PATCH 03/15] remoteproc: Introducing function rproc_attach()
+
+Introducing function rproc_attach() to enact the same actions as
+rproc_start(), but without the steps related to the handling of
+a firmware image.  That way we can properly deal with scenarios
+where the remoteproc core needs to attach with a remote processsor
+that has been booted by another entity.
+
+Signed-off-by: Mathieu Poirier <mathieu.poirier@linaro.org>
+Reviewed-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+Tested-by: Arnaud Pouliquen <arnaud.pouliquen@st.com>
+Link: https://lore.kernel.org/r/20200714195035.1426873-4-mathieu.poirier@linaro.org
+Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+---
+ drivers/remoteproc/remoteproc_core.c | 42 ++++++++++++++++++++++++++++
+ 1 file changed, 42 insertions(+)
+
+diff --git a/drivers/remoteproc/remoteproc_core.c b/drivers/remoteproc/remoteproc_core.c
+index 3c5fbbbfb0f1..49a61784006b 100644
+--- a/drivers/remoteproc/remoteproc_core.c
++++ b/drivers/remoteproc/remoteproc_core.c
+@@ -1359,6 +1359,48 @@ static int rproc_start(struct rproc *rproc, const struct firmware *fw)
+ 	return ret;
+ }
+ 
++static int __maybe_unused rproc_attach(struct rproc *rproc)
++{
++	struct device *dev = &rproc->dev;
++	int ret;
++
++	ret = rproc_prepare_subdevices(rproc);
++	if (ret) {
++		dev_err(dev, "failed to prepare subdevices for %s: %d\n",
++			rproc->name, ret);
++		goto out;
++	}
++
++	/* Attach to the remote processor */
++	ret = rproc_attach_device(rproc);
++	if (ret) {
++		dev_err(dev, "can't attach to rproc %s: %d\n",
++			rproc->name, ret);
++		goto unprepare_subdevices;
++	}
++
++	/* Start any subdevices for the remote processor */
++	ret = rproc_start_subdevices(rproc);
++	if (ret) {
++		dev_err(dev, "failed to probe subdevices for %s: %d\n",
++			rproc->name, ret);
++		goto stop_rproc;
++	}
++
++	rproc->state = RPROC_RUNNING;
++
++	dev_info(dev, "remote processor %s is now attached\n", rproc->name);
++
++	return 0;
++
++stop_rproc:
++	rproc->ops->stop(rproc);
++unprepare_subdevices:
++	rproc_unprepare_subdevices(rproc);
++out:
++	return ret;
++}
++
+ /*
+  * take a firmware and boot a remote processor with it.
+  */
+-- 
+2.26.2
+
+
+From 772b289a87cc147763b7c5499fcf8e401e536c93 Mon Sep 17 00:00:00 2001
+From: Mathieu Poirier <mathieu.poirier@linaro.org>
+Date: Tue, 14 Jul 2020 13:50:30 -0600
+Subject: [PATCH 04/15] remoteproc: Introducing function rproc_actuate()
+
+Introduce function rproc_actuate() that provides the same
+functionatlity as rproc_fw_boot(), but without the steps that
+involve interaction with the firmware image.  That way we can
+deal with scenarios where the remoteproc core is attaching
+to a remote processor that has already been started by another
+entity.
+
+Signed-off-by: Mathieu Poirier <mathieu.poirier@linaro.org>
+Reviewed-by: Arnaud Pouliquen <arnaud.pouliquen@st.com>
+Tested-by: Arnaud Pouliquen <arnaud.pouliquen@st.com>
+Link: https://lore.kernel.org/r/20200714195035.1426873-5-mathieu.poirier@linaro.org
+Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+---
+ drivers/remoteproc/remoteproc_core.c | 59 +++++++++++++++++++++++++++-
+ 1 file changed, 58 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/remoteproc/remoteproc_core.c b/drivers/remoteproc/remoteproc_core.c
+index 49a61784006b..d5c120a2bbe7 100644
+--- a/drivers/remoteproc/remoteproc_core.c
++++ b/drivers/remoteproc/remoteproc_core.c
+@@ -1359,7 +1359,7 @@ static int rproc_start(struct rproc *rproc, const struct firmware *fw)
+ 	return ret;
+ }
+ 
+-static int __maybe_unused rproc_attach(struct rproc *rproc)
++static int rproc_attach(struct rproc *rproc)
+ {
+ 	struct device *dev = &rproc->dev;
+ 	int ret;
+@@ -1470,6 +1470,63 @@ static int rproc_fw_boot(struct rproc *rproc, const struct firmware *fw)
+ 	return ret;
+ }
+ 
++/*
++ * Attach to remote processor - similar to rproc_fw_boot() but without
++ * the steps that deal with the firmware image.
++ */
++static int __maybe_unused rproc_actuate(struct rproc *rproc)
++{
++	struct device *dev = &rproc->dev;
++	int ret;
++
++	/*
++	 * if enabling an IOMMU isn't relevant for this rproc, this is
++	 * just a nop
++	 */
++	ret = rproc_enable_iommu(rproc);
++	if (ret) {
++		dev_err(dev, "can't enable iommu: %d\n", ret);
++		return ret;
++	}
++
++	/* reset max_notifyid */
++	rproc->max_notifyid = -1;
++
++	/* reset handled vdev */
++	rproc->nb_vdev = 0;
++
++	/*
++	 * Handle firmware resources required to attach to a remote processor.
++	 * Because we are attaching rather than booting the remote processor,
++	 * we expect the platform driver to properly set rproc->table_ptr.
++	 */
++	ret = rproc_handle_resources(rproc, rproc_loading_handlers);
++	if (ret) {
++		dev_err(dev, "Failed to process resources: %d\n", ret);
++		goto disable_iommu;
++	}
++
++	/* Allocate carveout resources associated to rproc */
++	ret = rproc_alloc_registered_carveouts(rproc);
++	if (ret) {
++		dev_err(dev, "Failed to allocate associated carveouts: %d\n",
++			ret);
++		goto clean_up_resources;
++	}
++
++	ret = rproc_attach(rproc);
++	if (ret)
++		goto clean_up_resources;
++
++	return 0;
++
++clean_up_resources:
++	rproc_resource_cleanup(rproc);
++disable_iommu:
++	rproc_disable_iommu(rproc);
++	return ret;
++}
++
+ /*
+  * take a firmware and boot it up.
+  *
+-- 
+2.26.2
+
+
+From ee8df0a867325da7087080fbd72ec12ca8854fa4 Mon Sep 17 00:00:00 2001
+From: Mathieu Poirier <mathieu.poirier@linaro.org>
+Date: Tue, 14 Jul 2020 13:50:31 -0600
+Subject: [PATCH 05/15] remoteproc: Introducing function rproc_validate()
+
+Add a new function to assert the general health of the remote
+processor before handing it to the remoteproc core.
+
+Signed-off-by: Mathieu Poirier <mathieu.poirier@linaro.org>
+Reviewed-by: Arnaud Pouliquen <arnaud.pouliquen@st.com>
+Tested-by: Arnaud Pouliquen <arnaud.pouliquen@st.com>
+Link: https://lore.kernel.org/r/20200714195035.1426873-6-mathieu.poirier@linaro.org
+Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+---
+ drivers/remoteproc/remoteproc_core.c | 41 ++++++++++++++++++++++++++++
+ 1 file changed, 41 insertions(+)
+
+diff --git a/drivers/remoteproc/remoteproc_core.c b/drivers/remoteproc/remoteproc_core.c
+index d5c120a2bbe7..b1482eee823d 100644
+--- a/drivers/remoteproc/remoteproc_core.c
++++ b/drivers/remoteproc/remoteproc_core.c
+@@ -1982,6 +1982,43 @@ struct rproc *rproc_get_by_phandle(phandle phandle)
+ #endif
+ EXPORT_SYMBOL(rproc_get_by_phandle);
+ 
++static int rproc_validate(struct rproc *rproc)
++{
++	switch (rproc->state) {
++	case RPROC_OFFLINE:
++		/*
++		 * An offline processor without a start()
++		 * function makes no sense.
++		 */
++		if (!rproc->ops->start)
++			return -EINVAL;
++		break;
++	case RPROC_DETACHED:
++		/*
++		 * A remote processor in a detached state without an
++		 * attach() function makes not sense.
++		 */
++		if (!rproc->ops->attach)
++			return -EINVAL;
++		/*
++		 * When attaching to a remote processor the device memory
++		 * is already available and as such there is no need to have a
++		 * cached table.
++		 */
++		if (rproc->cached_table)
++			return -EINVAL;
++		break;
++	default:
++		/*
++		 * When adding a remote processor, the state of the device
++		 * can be offline or detached, nothing else.
++		 */
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
+ /**
+  * rproc_add() - register a remote processor
+  * @rproc: the remote processor handle to register
+@@ -2011,6 +2048,10 @@ int rproc_add(struct rproc *rproc)
+ 	if (ret < 0)
+ 		return ret;
+ 
++	ret = rproc_validate(rproc);
++	if (ret < 0)
++		return ret;
++
+ 	dev_info(dev, "%s is available\n", rproc->name);
+ 
+ 	/* create debugfs entries */
+-- 
+2.26.2
+
+
+From a569ad48de7815a42f32402dafabb86db269c710 Mon Sep 17 00:00:00 2001
+From: Mathieu Poirier <mathieu.poirier@linaro.org>
+Date: Tue, 14 Jul 2020 13:50:32 -0600
+Subject: [PATCH 06/15] remoteproc: Refactor function rproc_boot()
+
+Refactor function rproc_boot() to properly deal with scenarios
+where the remoteproc core needs to attach with a remote
+processor that has already been booted by an external entity.
+
+Signed-off-by: Mathieu Poirier <mathieu.poirier@linaro.org>
+Reviewed-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+Tested-by: Arnaud Pouliquen <arnaud.pouliquen@st.com>
+Link: https://lore.kernel.org/r/20200714195035.1426873-7-mathieu.poirier@linaro.org
+Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+---
+ drivers/remoteproc/remoteproc_core.c | 28 +++++++++++++++++-----------
+ 1 file changed, 17 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/remoteproc/remoteproc_core.c b/drivers/remoteproc/remoteproc_core.c
+index b1482eee823d..ede85a6baa1e 100644
+--- a/drivers/remoteproc/remoteproc_core.c
++++ b/drivers/remoteproc/remoteproc_core.c
+@@ -1474,7 +1474,7 @@ static int rproc_fw_boot(struct rproc *rproc, const struct firmware *fw)
+  * Attach to remote processor - similar to rproc_fw_boot() but without
+  * the steps that deal with the firmware image.
+  */
+-static int __maybe_unused rproc_actuate(struct rproc *rproc)
++static int rproc_actuate(struct rproc *rproc)
+ {
+ 	struct device *dev = &rproc->dev;
+ 	int ret;
+@@ -1850,24 +1850,30 @@ int rproc_boot(struct rproc *rproc)
+ 		goto unlock_mutex;
+ 	}
+ 
+-	/* skip the boot process if rproc is already powered up */
++	/* skip the boot or attach process if rproc is already powered up */
+ 	if (atomic_inc_return(&rproc->power) > 1) {
+ 		ret = 0;
+ 		goto unlock_mutex;
+ 	}
+ 
+-	dev_info(dev, "powering up %s\n", rproc->name);
++	if (rproc->state == RPROC_DETACHED) {
++		dev_info(dev, "attaching to %s\n", rproc->name);
+ 
+-	/* load firmware */
+-	ret = request_firmware(&firmware_p, rproc->firmware, dev);
+-	if (ret < 0) {
+-		dev_err(dev, "request_firmware failed: %d\n", ret);
+-		goto downref_rproc;
+-	}
++		ret = rproc_actuate(rproc);
++	} else {
++		dev_info(dev, "powering up %s\n", rproc->name);
+ 
+-	ret = rproc_fw_boot(rproc, firmware_p);
++		/* load firmware */
++		ret = request_firmware(&firmware_p, rproc->firmware, dev);
++		if (ret < 0) {
++			dev_err(dev, "request_firmware failed: %d\n", ret);
++			goto downref_rproc;
++		}
+ 
+-	release_firmware(firmware_p);
++		ret = rproc_fw_boot(rproc, firmware_p);
++
++		release_firmware(firmware_p);
++	}
+ 
+ downref_rproc:
+ 	if (ret)
+-- 
+2.26.2
+
+
+From bc4d6db80872ab5301ec6074ee7898725def16f4 Mon Sep 17 00:00:00 2001
+From: Mathieu Poirier <mathieu.poirier@linaro.org>
+Date: Tue, 14 Jul 2020 13:50:33 -0600
+Subject: [PATCH 07/15] remoteproc: Refactor function rproc_trigger_auto_boot()
+
+Refactor function rproc_trigger_auto_boot() to properly deal
+with scenarios where the remoteproc core needs to attach with a
+remote processor that has already been booted by an external
+entity.
+
+Signed-off-by: Mathieu Poirier <mathieu.poirier@linaro.org>
+Reviewed-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+Tested-by: Arnaud Pouliquen <arnaud.pouliquen@st.com>
+Link: https://lore.kernel.org/r/20200714195035.1426873-8-mathieu.poirier@linaro.org
+Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+---
+ drivers/remoteproc/remoteproc_core.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/drivers/remoteproc/remoteproc_core.c b/drivers/remoteproc/remoteproc_core.c
+index ede85a6baa1e..4bd0282b78de 100644
+--- a/drivers/remoteproc/remoteproc_core.c
++++ b/drivers/remoteproc/remoteproc_core.c
+@@ -1548,6 +1548,15 @@ static int rproc_trigger_auto_boot(struct rproc *rproc)
+ {
+ 	int ret;
+ 
++	/*
++	 * Since the remote processor is in a detached state, it has already
++	 * been booted by another entity.  As such there is no point in waiting
++	 * for a firmware image to be loaded, we can simply initiate the process
++	 * of attaching to it immediately.
++	 */
++	if (rproc->state == RPROC_DETACHED)
++		return rproc_boot(rproc);
++
+ 	/*
+ 	 * We're initiating an asynchronous firmware loading, so we can
+ 	 * be built-in kernel code, without hanging the boot process.
+-- 
+2.26.2
+
+
+From 873bb348af6489abdf63e4458066efab19be42bb Mon Sep 17 00:00:00 2001
+From: Mathieu Poirier <mathieu.poirier@linaro.org>
+Date: Tue, 14 Jul 2020 13:50:34 -0600
+Subject: [PATCH 08/15] remoteproc: Refactor function rproc_free_vring()
+
+When function rproc_free_vring() clears the virtio device section
+it does so on the cached resource table rather than the one
+installed in the remote processor memory.  When a remote processor
+has been booted by another entity there is no need to use a cached
+table and as such, no need to clear the virtio device section in
+it.
+
+Signed-off-by: Mathieu Poirier <mathieu.poirier@linaro.org>
+Reviewed-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+Tested-by: Arnaud Pouliquen <arnaud.pouliquen@st.com>
+Link: https://lore.kernel.org/r/20200714195035.1426873-9-mathieu.poirier@linaro.org
+Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+---
+ drivers/remoteproc/remoteproc_core.c | 20 ++++++++++++++++----
+ 1 file changed, 16 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/remoteproc/remoteproc_core.c b/drivers/remoteproc/remoteproc_core.c
+index 4bd0282b78de..5aa37fdbb4a5 100644
+--- a/drivers/remoteproc/remoteproc_core.c
++++ b/drivers/remoteproc/remoteproc_core.c
+@@ -405,10 +405,22 @@ void rproc_free_vring(struct rproc_vring *rvring)
+ 
+ 	idr_remove(&rproc->notifyids, rvring->notifyid);
+ 
+-	/* reset resource entry info */
+-	rsc = (void *)rproc->table_ptr + rvring->rvdev->rsc_offset;
+-	rsc->vring[idx].da = 0;
+-	rsc->vring[idx].notifyid = -1;
++	/*
++	 * At this point rproc_stop() has been called and the installed resource
++	 * table in the remote processor memory may no longer be accessible. As
++	 * such and as per rproc_stop(), rproc->table_ptr points to the cached
++	 * resource table (rproc->cached_table).  The cached resource table is
++	 * only available when a remote processor has been booted by the
++	 * remoteproc core, otherwise it is NULL.
++	 *
++	 * Based on the above, reset the virtio device section in the cached
++	 * resource table only if there is one to work with.
++	 */
++	if (rproc->table_ptr) {
++		rsc = (void *)rproc->table_ptr + rvring->rvdev->rsc_offset;
++		rsc->vring[idx].da = 0;
++		rsc->vring[idx].notifyid = -1;
++	}
+ }
+ 
+ static int rproc_vdev_do_start(struct rproc_subdev *subdev)
+-- 
+2.26.2
+
+
+From fe98b934a9968f39f38a17444c86a913ec687968 Mon Sep 17 00:00:00 2001
+From: Mathieu Poirier <mathieu.poirier@linaro.org>
+Date: Tue, 14 Jul 2020 13:50:35 -0600
+Subject: [PATCH 09/15] remoteproc: Properly handle firmware name when
+ attaching
+
+This patch prevents the firmware image name from being displayed when
+the remoteproc core is attaching to a remote processor. This is needed
+needed since there is no guarantee about the nature of the firmware
+image that is loaded by the external entity.
+
+Signed-off-by: Mathieu Poirier <mathieu.poirier@linaro.org>
+Reviewed-by: Arnaud Pouliquen <arnaud.pouliquen@st.com>
+Reviewed-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+Tested-by: Arnaud Pouliquen <arnaud.pouliquen@st.com>
+Link: https://lore.kernel.org/r/20200714195035.1426873-10-mathieu.poirier@linaro.org
+Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+---
+ drivers/remoteproc/remoteproc_core.c  | 18 ++++++++++++++++++
+ drivers/remoteproc/remoteproc_sysfs.c | 16 ++++++++++++++--
+ include/linux/remoteproc.h            |  2 ++
+ 3 files changed, 34 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/remoteproc/remoteproc_core.c b/drivers/remoteproc/remoteproc_core.c
+index 5aa37fdbb4a5..008ad67563ce 100644
+--- a/drivers/remoteproc/remoteproc_core.c
++++ b/drivers/remoteproc/remoteproc_core.c
+@@ -1604,6 +1604,14 @@ static int rproc_stop(struct rproc *rproc, bool crashed)
+ 
+ 	rproc->state = RPROC_OFFLINE;
+ 
++	/*
++	 * The remote processor has been stopped and is now offline, which means
++	 * that the next time it is brought back online the remoteproc core will
++	 * be responsible to load its firmware.  As such it is no longer
++	 * autonomous.
++	 */
++	rproc->autonomous = false;
++
+ 	dev_info(dev, "stopped remote processor %s\n", rproc->name);
+ 
+ 	return 0;
+@@ -2084,6 +2092,16 @@ int rproc_add(struct rproc *rproc)
+ 	/* create debugfs entries */
+ 	rproc_create_debug_dir(rproc);
+ 
++	/*
++	 * Remind ourselves the remote processor has been attached to rather
++	 * than booted by the remoteproc core.  This is important because the
++	 * RPROC_DETACHED state will be lost as soon as the remote processor
++	 * has been attached to.  Used in firmware_show() and reset in
++	 * rproc_stop().
++	 */
++	if (rproc->state == RPROC_DETACHED)
++		rproc->autonomous = true;
++
+ 	/* if rproc is marked always-on, request it to boot */
+ 	if (rproc->auto_boot) {
+ 		ret = rproc_trigger_auto_boot(rproc);
+diff --git a/drivers/remoteproc/remoteproc_sysfs.c b/drivers/remoteproc/remoteproc_sysfs.c
+index 8b462c501465..4ee158431f67 100644
+--- a/drivers/remoteproc/remoteproc_sysfs.c
++++ b/drivers/remoteproc/remoteproc_sysfs.c
+@@ -14,8 +14,20 @@ static ssize_t firmware_show(struct device *dev, struct device_attribute *attr,
+ 			  char *buf)
+ {
+ 	struct rproc *rproc = to_rproc(dev);
+-
+-	return sprintf(buf, "%s\n", rproc->firmware);
++	const char *firmware = rproc->firmware;
++
++	/*
++	 * If the remote processor has been started by an external
++	 * entity we have no idea of what image it is running.  As such
++	 * simply display a generic string rather then rproc->firmware.
++	 *
++	 * Here we rely on the autonomous flag because a remote processor
++	 * may have been attached to and currently in a running state.
++	 */
++	if (rproc->autonomous)
++		firmware = "unknown";
++
++	return sprintf(buf, "%s\n", firmware);
+ }
+ 
+ /* Change firmware name via sysfs */
+diff --git a/include/linux/remoteproc.h b/include/linux/remoteproc.h
+index 4363a46e213f..215f2e68c7e9 100644
+--- a/include/linux/remoteproc.h
++++ b/include/linux/remoteproc.h
+@@ -484,6 +484,7 @@ struct rproc_dump_segment {
+  * @table_sz: size of @cached_table
+  * @has_iommu: flag to indicate if remote processor is behind an MMU
+  * @auto_boot: flag to indicate if remote processor should be auto-started
++ * @autonomous: true if an external entity has booted the remote processor
+  * @dump_segments: list of segments in the firmware
+  * @nb_vdev: number of vdev currently handled by rproc
+  */
+@@ -517,6 +518,7 @@ struct rproc {
+ 	size_t table_sz;
+ 	bool has_iommu;
+ 	bool auto_boot;
++	bool autonomous;
+ 	struct list_head dump_segments;
+ 	int nb_vdev;
+ };
+-- 
+2.26.2
+
+
+From fa5dc4e58edc3fe792571d9abd4a9b1066bd0263 Mon Sep 17 00:00:00 2001
+From: Mathieu Poirier <mathieu.poirier@linaro.org>
+Date: Tue, 14 Jul 2020 14:04:41 -0600
+Subject: [PATCH 10/15] remoteproc: Make function rproc_resource_cleanup()
+ public
+
+Make function rproc_resource_cleanup() public so that it can be
+used by platform drivers when allocating resources to be used by
+a detached remote processor.
+
+Acked-by: Arnaud Pouliquen <arnaud.pouliquen@st.com>
+Signed-off-by: Mathieu Poirier <mathieu.poirier@linaro.org>
+Link: https://lore.kernel.org/r/20200714200445.1427257-8-mathieu.poirier@linaro.org
+Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+---
+ drivers/remoteproc/remoteproc_core.c | 3 ++-
+ include/linux/remoteproc.h           | 1 +
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/remoteproc/remoteproc_core.c b/drivers/remoteproc/remoteproc_core.c
+index 008ad67563ce..bba9610bbecb 100644
+--- a/drivers/remoteproc/remoteproc_core.c
++++ b/drivers/remoteproc/remoteproc_core.c
+@@ -1261,7 +1261,7 @@ static void rproc_coredump_cleanup(struct rproc *rproc)
+  * This function will free all resources acquired for @rproc, and it
+  * is called whenever @rproc either shuts down or fails to boot.
+  */
+-static void rproc_resource_cleanup(struct rproc *rproc)
++void rproc_resource_cleanup(struct rproc *rproc)
+ {
+ 	struct rproc_mem_entry *entry, *tmp;
+ 	struct rproc_debug_trace *trace, *ttmp;
+@@ -1305,6 +1305,7 @@ static void rproc_resource_cleanup(struct rproc *rproc)
+ 
+ 	rproc_coredump_cleanup(rproc);
+ }
++EXPORT_SYMBOL(rproc_resource_cleanup);
+ 
+ static int rproc_start(struct rproc *rproc, const struct firmware *fw)
+ {
+diff --git a/include/linux/remoteproc.h b/include/linux/remoteproc.h
+index 215f2e68c7e9..8287f11727f6 100644
+--- a/include/linux/remoteproc.h
++++ b/include/linux/remoteproc.h
+@@ -601,6 +601,7 @@ void rproc_put(struct rproc *rproc);
+ int rproc_add(struct rproc *rproc);
+ int rproc_del(struct rproc *rproc);
+ void rproc_free(struct rproc *rproc);
++void rproc_resource_cleanup(struct rproc *rproc);
+ 
+ void rproc_add_carveout(struct rproc *rproc, struct rproc_mem_entry *mem);
+ 
+-- 
+2.26.2
+
+
+From 85aafe06ad06dcf965b94caa4b20e6b94f540caa Mon Sep 17 00:00:00 2001
+From: Julien Massot <julien.massot@iot.bzh>
+Date: Mon, 26 Oct 2020 11:03:05 +0100
+Subject: [PATCH 11/15] remoteproc: Add prepare and unprepare ops
+
+On some SoC architecture, it is needed to enable HW like
+clock, bus, regulator, memory region... before loading
+co-processor firmware.
+
+This patch introduces prepare and unprepare ops to execute
+platform specific function before firmware loading and after
+stop execution.
+
+Signed-off-by: Loic Pallardy <loic.pallardy@st.com>
+Signed-off-by: Suman Anna <s-anna@ti.com>
+Reviewed-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+Reviewed-by: Mathieu Poirier <mathieu.poirier@linaro.org>
+Link: https://lore.kernel.org/r/20200417002036.24359-2-s-anna@ti.com
+Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+
+# Conflicts:
+#	drivers/remoteproc/remoteproc_internal.h
+---
+ drivers/remoteproc/remoteproc_core.c | 15 ++++++++++++++-
+ include/linux/remoteproc.h           |  4 ++++
+ 2 files changed, 18 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/remoteproc/remoteproc_core.c b/drivers/remoteproc/remoteproc_core.c
+index bba9610bbecb..a69a4b709b33 100644
+--- a/drivers/remoteproc/remoteproc_core.c
++++ b/drivers/remoteproc/remoteproc_core.c
+@@ -1439,12 +1439,19 @@ static int rproc_fw_boot(struct rproc *rproc, const struct firmware *fw)
+ 		return ret;
+ 	}
+ 
++	/* Prepare rproc for firmware loading if needed */
++	ret = rproc_prepare_device(rproc);
++	if (ret) {
++		dev_err(dev, "can't prepare rproc %s: %d\n", rproc->name, ret);
++		goto disable_iommu;
++	}
++
+ 	rproc->bootaddr = rproc_get_boot_addr(rproc, fw);
+ 
+ 	/* Load resource table, core dump segment list etc from the firmware */
+ 	ret = rproc_parse_fw(rproc, fw);
+ 	if (ret)
+-		goto disable_iommu;
++		goto unprepare_rproc;
+ 
+ 	/* reset max_notifyid */
+ 	rproc->max_notifyid = -1;
+@@ -1478,6 +1485,9 @@ static int rproc_fw_boot(struct rproc *rproc, const struct firmware *fw)
+ 	kfree(rproc->cached_table);
+ 	rproc->cached_table = NULL;
+ 	rproc->table_ptr = NULL;
++unprepare_rproc:
++	/* release HW resources if needed */
++	rproc_unprepare_device(rproc);
+ disable_iommu:
+ 	rproc_disable_iommu(rproc);
+ 	return ret;
+@@ -1957,6 +1967,9 @@ void rproc_shutdown(struct rproc *rproc)
+ 	/* clean up all acquired resources */
+ 	rproc_resource_cleanup(rproc);
+ 
++	/* release HW resources if needed */
++	rproc_unprepare_device(rproc);
++
+ 	rproc_disable_iommu(rproc);
+ 
+ 	/* Free the copy of the resource table */
+diff --git a/include/linux/remoteproc.h b/include/linux/remoteproc.h
+index 8287f11727f6..8c65082527d7 100644
+--- a/include/linux/remoteproc.h
++++ b/include/linux/remoteproc.h
+@@ -355,6 +355,8 @@ enum rsc_handling_status {
+ 
+ /**
+  * struct rproc_ops - platform-specific device handlers
++ * @prepare:	prepare device for code loading
++ * @unprepare:	unprepare device after stop
+  * @start:	power on the device and boot it
+  * @stop:	power off the device
+  * @attach:	attach to a device that his already powered up
+@@ -372,6 +374,8 @@ enum rsc_handling_status {
+  * @get_boot_addr:	get boot address to entry point specified in firmware
+  */
+ struct rproc_ops {
++	int (*prepare)(struct rproc *rproc);
++	int (*unprepare)(struct rproc *rproc);
+ 	int (*start)(struct rproc *rproc);
+ 	int (*stop)(struct rproc *rproc);
+ 	int (*attach)(struct rproc *rproc);
+-- 
+2.26.2
+
+
+From 1e1bcb3090748f1c35708e80935c6b4bc4c54354 Mon Sep 17 00:00:00 2001
+From: Julien Massot <julien.massot@iot.bzh>
+Date: Wed, 23 Sep 2020 14:28:56 +0200
+Subject: [PATCH 12/15] clk: add clock for MFIS registers
+
+---
+ drivers/clk/renesas/r8a7795-cpg-mssr.c  | 1 +
+ drivers/clk/renesas/r8a77990-cpg-mssr.c | 2 ++
+ 2 files changed, 3 insertions(+)
+
+diff --git a/drivers/clk/renesas/r8a7795-cpg-mssr.c b/drivers/clk/renesas/r8a7795-cpg-mssr.c
+index bbfe54dffc7c..a46e027b4535 100644
+--- a/drivers/clk/renesas/r8a7795-cpg-mssr.c
++++ b/drivers/clk/renesas/r8a7795-cpg-mssr.c
+@@ -137,6 +137,7 @@ static struct mssr_mod_clk r8a7795_mod_clks[] __initdata = {
+ 	DEF_MOD("msiof2",		 209,	R8A7795_CLK_MSO),
+ 	DEF_MOD("msiof1",		 210,	R8A7795_CLK_MSO),
+ 	DEF_MOD("msiof0",		 211,	R8A7795_CLK_MSO),
++	DEF_MOD("mfis",		         213,	R8A7795_CLK_MSO),
+ 	DEF_MOD("sys-dmac2",		 217,	R8A7795_CLK_S3D1),
+ 	DEF_MOD("sys-dmac1",		 218,	R8A7795_CLK_S3D1),
+ 	DEF_MOD("sys-dmac0",		 219,	R8A7795_CLK_S0D3),
+diff --git a/drivers/clk/renesas/r8a77990-cpg-mssr.c b/drivers/clk/renesas/r8a77990-cpg-mssr.c
+index 4e0671f81d7b..afabd22aa4fd 100644
+--- a/drivers/clk/renesas/r8a77990-cpg-mssr.c
++++ b/drivers/clk/renesas/r8a77990-cpg-mssr.c
+@@ -138,6 +138,8 @@ static const struct mssr_mod_clk r8a77990_mod_clks[] __initconst = {
+ 	DEF_MOD("msiof2",		 209,	R8A77990_CLK_MSO),
+ 	DEF_MOD("msiof1",		 210,	R8A77990_CLK_MSO),
+ 	DEF_MOD("msiof0",		 211,	R8A77990_CLK_MSO),
++	/* FIXME: parent clock 'MS0' looks wrong */
++	DEF_MOD("mfis",		         213,	R8A77990_CLK_MSO),
+ 	DEF_MOD("sys-dmac2",		 217,	R8A77990_CLK_S3D1),
+ 	DEF_MOD("sys-dmac1",		 218,	R8A77990_CLK_S3D1),
+ 	DEF_MOD("sys-dmac0",		 219,	R8A77990_CLK_S3D1),
+-- 
+2.26.2
+
+
+From 61a7eb99263a4cca3fd75d2142b509625da25356 Mon Sep 17 00:00:00 2001
+From: Julien Massot <julien.massot@iot.bzh>
+Date: Mon, 26 Oct 2020 10:46:18 +0100
+Subject: [PATCH 13/15] add mailbox driver
+
+---
+ drivers/mailbox/Kconfig     |   8 ++
+ drivers/mailbox/Makefile    |   2 +
+ drivers/mailbox/rcar-ipcc.c | 236 ++++++++++++++++++++++++++++++++++++
+ 3 files changed, 246 insertions(+)
+ create mode 100644 drivers/mailbox/rcar-ipcc.c
+
+diff --git a/drivers/mailbox/Kconfig b/drivers/mailbox/Kconfig
+index ab4eb750bbdd..79ccd0288518 100644
+--- a/drivers/mailbox/Kconfig
++++ b/drivers/mailbox/Kconfig
+@@ -199,6 +199,14 @@ config BCM_FLEXRM_MBOX
+ 	  which provides access to various offload engines on Broadcom
+ 	  SoCs. Say Y here if you want to use the Broadcom FlexRM.
+ 
++config RCAR_IPCC
++	tristate "Renesas R-Car IPCC Mailbox"
++	depends on ARCH_RENESAS
++	help
++	  Mailbox implementation for Renesas R-Car family chips
++	  with hardware for Inter-Processor Communication Controller (IPCC)
++	  between processors. Say Y here if you want to have this support.
++
+ config STM32_IPCC
+ 	tristate "STM32 IPCC Mailbox"
+ 	depends on MACH_STM32MP157
+diff --git a/drivers/mailbox/Makefile b/drivers/mailbox/Makefile
+index c22fad6f696b..fe2594cbb05e 100644
+--- a/drivers/mailbox/Makefile
++++ b/drivers/mailbox/Makefile
+@@ -43,6 +43,8 @@ obj-$(CONFIG_QCOM_APCS_IPC)	+= qcom-apcs-ipc-mailbox.o
+ 
+ obj-$(CONFIG_TEGRA_HSP_MBOX)	+= tegra-hsp.o
+ 
++obj-$(CONFIG_RCAR_IPCC) 	+= rcar-ipcc.o
++
+ obj-$(CONFIG_STM32_IPCC) 	+= stm32-ipcc.o
+ 
+ obj-$(CONFIG_MTK_CMDQ_MBOX)	+= mtk-cmdq-mailbox.o
+diff --git a/drivers/mailbox/rcar-ipcc.c b/drivers/mailbox/rcar-ipcc.c
+new file mode 100644
+index 000000000000..73518cd00e9a
+--- /dev/null
++++ b/drivers/mailbox/rcar-ipcc.c
+@@ -0,0 +1,236 @@
++#include <linux/bitfield.h>
++#include <linux/clk.h>
++#include <linux/interrupt.h>
++#include <linux/io.h>
++#include <linux/mailbox_controller.h>
++#include <linux/module.h>
++#include <linux/platform_device.h>
++
++/* From AP processor to realtime processor */
++#define MFISARIICR0 0x0 /* tx */
++#define MFISARIICR1 0x8 /* rxdone */
++/* From AP realtime to AP processor */
++#define MFISAREICR0 0x4 /* txdone */
++#define MFISAREICR1 0xc /* rx */
++
++#define INT_BIT BIT(0)
++#define TX_BIT BIT(1)
++
++enum {
++	IPCC_IRQ_RX,
++	IPCC_IRQ_TX,
++	IPCC_IRQ_NUM,
++};
++
++struct rcar_ipcc {
++	struct mbox_controller controller;
++	void __iomem *reg_base;
++	struct clk *clk;
++	spinlock_t lock; /* protect access to IPCC registers */
++	int irqs[IPCC_IRQ_NUM];
++};
++
++static inline void rcar_ipcc_set_bits(spinlock_t *lock, void __iomem *reg,
++				       u32 mask)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(lock, flags);
++	writel_relaxed(readl_relaxed(reg) | mask, reg);
++	spin_unlock_irqrestore(lock, flags);
++}
++
++static inline void rcar_ipcc_clr_bits(spinlock_t *lock, void __iomem *reg,
++				       u32 mask)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(lock, flags);
++	writel_relaxed(readl_relaxed(reg) & ~mask, reg);
++	spin_unlock_irqrestore(lock, flags);
++}
++
++static irqreturn_t rcar_ipcc_rx_irq(int irq, void *data)
++{
++	struct rcar_ipcc *ipcc = data;
++	uint32_t status, chan = 1;
++	irqreturn_t ret = IRQ_NONE;
++
++	/* clear irq */
++	rcar_ipcc_clr_bits(&ipcc->lock, ipcc->reg_base + MFISAREICR1, INT_BIT);
++	
++	status = readl_relaxed(ipcc->reg_base + MFISAREICR1);
++	if (status & TX_BIT) {
++		mbox_chan_received_data(&ipcc->controller.chans[chan], NULL);
++		
++		/* raise irq on remoteproc rx done */
++		rcar_ipcc_set_bits(&ipcc->lock, ipcc->reg_base + MFISARIICR1,
++				   INT_BIT);
++		ret = IRQ_HANDLED;
++	}
++	return ret;
++}
++
++static irqreturn_t rcar_ipcc_tx_irq(int irq, void *data)
++{
++	struct rcar_ipcc *ipcc = data;
++	irqreturn_t ret = IRQ_NONE;
++
++	uint32_t chan = 0;
++	uint32_t status;
++	/* clear irq */
++	rcar_ipcc_clr_bits(&ipcc->lock, ipcc->reg_base + MFISAREICR0, INT_BIT);
++	
++	status = readl_relaxed(ipcc->reg_base + MFISARIICR0);
++	if (status & TX_BIT) {
++		rcar_ipcc_clr_bits(&ipcc->lock, ipcc->reg_base + MFISARIICR0, TX_BIT);
++		mbox_chan_txdone(&ipcc->controller.chans[chan], 0);
++		ret = IRQ_HANDLED;
++	}
++	return ret;
++}
++
++static int rcar_ipcc_send_data(struct mbox_chan *link, void *data)
++{
++	struct rcar_ipcc *ipcc = container_of(link->mbox, struct rcar_ipcc,
++					       controller);
++	uint32_t status;
++
++	status = readl_relaxed(ipcc->reg_base + MFISARIICR0);
++	if (status & TX_BIT) {
++		dev_err(ipcc->controller.dev, "ERROR tx channel is busy !");
++		return -EBUSY;
++	}
++
++	/* set channel occupied, and raise irq on remoteproc */
++	rcar_ipcc_set_bits(&ipcc->lock, ipcc->reg_base + MFISARIICR0,
++				TX_BIT|INT_BIT);
++	return 0;
++}
++
++static int rcar_ipcc_startup(struct mbox_chan *link)
++{
++	struct rcar_ipcc *ipcc = container_of(link->mbox, struct rcar_ipcc,
++					       controller);
++	int ret;
++
++	ret = clk_prepare_enable(ipcc->clk);
++	if (ret) {
++		dev_err(ipcc->controller.dev, "can not enable the clock\n");
++		return ret;
++	}
++
++	return 0;
++}
++
++static void rcar_ipcc_shutdown(struct mbox_chan *link)
++{
++	struct rcar_ipcc *ipcc = container_of(link->mbox, struct rcar_ipcc,
++					       controller);
++
++	clk_disable_unprepare(ipcc->clk);
++}
++
++static const struct mbox_chan_ops rcar_ipcc_ops = {
++	.send_data	= rcar_ipcc_send_data,
++	.startup	= rcar_ipcc_startup,
++	.shutdown	= rcar_ipcc_shutdown,
++};
++
++static int rcar_ipcc_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct device_node *np = dev->of_node;
++	struct rcar_ipcc *ipcc;
++	struct resource *res;
++	static const char * const irq_name[] = {"rx", "tx"};
++	irq_handler_t irq_thread[] = {rcar_ipcc_rx_irq, rcar_ipcc_tx_irq};
++	int ret;
++	unsigned int i;
++
++	if (!np) {
++		dev_err(dev, "No DT found\n");
++		return -ENODEV;
++	}
++
++	ipcc = devm_kzalloc(dev, sizeof(*ipcc), GFP_KERNEL);
++	if (!ipcc)
++		return -ENOMEM;
++
++	spin_lock_init(&ipcc->lock);
++	
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	ipcc->reg_base = devm_ioremap_resource(dev, res);
++	if (IS_ERR(ipcc->reg_base))
++		return PTR_ERR(ipcc->reg_base);
++
++	/* clock */
++	ipcc->clk = devm_clk_get(dev, NULL);
++	if (IS_ERR(ipcc->clk))
++		return PTR_ERR(ipcc->clk);
++
++	/* irq */
++	for (i = 0; i < IPCC_IRQ_NUM; i++) {
++		ipcc->irqs[i] = platform_get_irq_byname(pdev, irq_name[i]);
++		if (ipcc->irqs[i] < 0) {
++			if (ipcc->irqs[i] != -EPROBE_DEFER)
++				dev_err(dev, "no IRQ specified %s\n",
++					irq_name[i]);
++			ret = ipcc->irqs[i];
++			goto err_clk;
++		}
++
++		ret = devm_request_threaded_irq(dev, ipcc->irqs[i], NULL,
++						irq_thread[i], IRQF_ONESHOT,
++						dev_name(dev), ipcc);
++		if (ret) {
++			dev_err(dev, "failed to request irq %d (%d)\n", i, ret);
++			goto err_clk;
++		}
++	}
++
++	ipcc->controller.dev = dev;
++	ipcc->controller.txdone_irq = true;
++	ipcc->controller.ops = &rcar_ipcc_ops;
++	ipcc->controller.num_chans = 2;
++	ipcc->controller.chans = devm_kcalloc(dev, ipcc->controller.num_chans,
++						sizeof(*ipcc->controller.chans),
++						GFP_KERNEL);
++
++	ret = devm_mbox_controller_register(dev, &ipcc->controller);
++	if (ret)
++		goto err_clk;
++	
++	platform_set_drvdata(pdev, ipcc);
++
++	return 0;
++
++err_clk:
++	return ret;
++}
++
++static int rcar_ipcc_remove(struct platform_device *pdev)
++{	
++	return 0;
++}
++
++static const struct of_device_id rcar_ipcc_of_match[] = {
++	{ .compatible = "renesas,rcar-ipcc" },
++	{},
++};
++MODULE_DEVICE_TABLE(of, rcar_ipcc_of_match);
++
++static struct platform_driver rcar_ipcc_driver = {
++	.driver = {
++		.name = "rcar-ipcc",
++		.of_match_table = rcar_ipcc_of_match,
++	},
++	.probe		= rcar_ipcc_probe,
++	.remove		= rcar_ipcc_remove,
++};
++
++module_platform_driver(rcar_ipcc_driver);
++
++MODULE_AUTHOR("Julien Massot <julien.massot@iot.bzh>");
++MODULE_DESCRIPTION("Renesas RCAR IPCC driver");
++MODULE_LICENSE("GPL v2");
+-- 
+2.26.2
+
+
+From a9c6c1d175a02f42dcf1ad02c40bf94680459a2d Mon Sep 17 00:00:00 2001
+From: Julien Massot <julien.massot@iot.bzh>
+Date: Mon, 26 Oct 2020 10:46:35 +0100
+Subject: [PATCH 14/15] add rcar_rproc driver
+
+---
+ drivers/remoteproc/Kconfig      |  15 ++
+ drivers/remoteproc/Makefile     |   1 +
+ drivers/remoteproc/rcar_rproc.c | 392 ++++++++++++++++++++++++++++++++
+ 3 files changed, 408 insertions(+)
+ create mode 100644 drivers/remoteproc/rcar_rproc.c
+
+diff --git a/drivers/remoteproc/Kconfig b/drivers/remoteproc/Kconfig
+index 94afdde4bc9f..a31e44ea2d37 100644
+--- a/drivers/remoteproc/Kconfig
++++ b/drivers/remoteproc/Kconfig
+@@ -186,6 +186,21 @@ config QCOM_WCNSS_PIL
+ 	  Say y here to support the Peripheral Image Loader for the Qualcomm
+ 	  Wireless Connectivity Subsystem.
+ 
++config RCAR_RPROC
++	tristate "Renesas RCAR remoteproc support"
++	depends on ARCH_RENESAS
++	depends on REMOTEPROC
++	select MAILBOX
++	help
++	  Say y here to support RCAR MCU processors via the
++	  remote processor framework.
++
++	  You want to say y here in order to enable AMP
++	  use-cases to run on your platform (dedicated firmware could be
++	  offloaded to remote MCU processors using this framework).
++
++	  This can be either built-in or a loadable module.
++
+ config ST_REMOTEPROC
+ 	tristate "ST remoteproc support"
+ 	depends on ARCH_STI
+diff --git a/drivers/remoteproc/Makefile b/drivers/remoteproc/Makefile
+index 00f09e658cb3..b3baab33e612 100644
+--- a/drivers/remoteproc/Makefile
++++ b/drivers/remoteproc/Makefile
+@@ -24,6 +24,7 @@ obj-$(CONFIG_QCOM_SYSMON)		+= qcom_sysmon.o
+ obj-$(CONFIG_QCOM_WCNSS_PIL)		+= qcom_wcnss_pil.o
+ qcom_wcnss_pil-y			+= qcom_wcnss.o
+ qcom_wcnss_pil-y			+= qcom_wcnss_iris.o
++obj-$(CONFIG_RCAR_RPROC)		+= rcar_rproc.o
+ obj-$(CONFIG_ST_REMOTEPROC)		+= st_remoteproc.o
+ obj-$(CONFIG_ST_SLIM_REMOTEPROC)	+= st_slim_rproc.o
+ obj-$(CONFIG_STM32_RPROC)		+= stm32_rproc.o
+diff --git a/drivers/remoteproc/rcar_rproc.c b/drivers/remoteproc/rcar_rproc.c
+new file mode 100644
+index 000000000000..fb71aaf525f3
+--- /dev/null
++++ b/drivers/remoteproc/rcar_rproc.c
+@@ -0,0 +1,392 @@
++#include <linux/mailbox_client.h>
++#include <linux/mfd/syscon.h>
++#include <linux/module.h>
++#include <linux/of_device.h>
++#include <linux/of_reserved_mem.h>
++#include <linux/regmap.h>
++#include <linux/remoteproc.h>
++#include <linux/workqueue.h>
++
++#include "remoteproc_internal.h"
++
++#define RCAR_RX_VQ_ID 0
++#define RSC_TBL_SIZE		1024
++
++struct rcar_syscon {
++	struct regmap *map;
++	u32 reg;
++	u32 mask;
++};
++
++struct rcar_rproc {
++	struct device			*dev;
++	struct rproc			*rproc;
++	struct delayed_work		rproc_work;
++	struct mbox_client              cl;
++	struct mbox_chan		*tx_ch;
++	struct mbox_chan		*rx_ch;
++	struct workqueue_struct         *workqueue;
++	struct work_struct              vq_work;
++	struct rcar_syscon              rsctbl;
++	void __iomem                    *rsc_va;
++};
++
++static void rcar_rproc_vq_work(struct work_struct *work)
++{
++	struct rcar_rproc *priv = container_of(work, struct rcar_rproc, vq_work);
++	struct rproc *rproc = priv->rproc;
++	if (rproc_vq_interrupt(rproc, RCAR_RX_VQ_ID) == IRQ_NONE)
++		dev_dbg(&rproc->dev, "no message found in vq%d\n", RCAR_RX_VQ_ID);
++};
++
++static void rcar_rproc_rx_callback(struct mbox_client *cl, void *msg)
++{
++	struct rproc *rproc = dev_get_drvdata(cl->dev);
++	struct rcar_rproc *priv = rproc->priv;
++
++	queue_work(priv->workqueue, &priv->vq_work);
++}
++
++static void rcar_rproc_free_mbox(struct rproc *rproc)
++{
++	struct rcar_rproc *priv = rproc->priv;
++
++	if (priv->tx_ch) {
++		mbox_free_channel(priv->tx_ch);
++		priv->tx_ch = NULL;
++	}
++
++	if (priv->rx_ch) {
++		mbox_free_channel(priv->rx_ch);
++		priv->rx_ch = NULL;
++	}
++}
++
++static int rcar_rproc_request_mbox(struct rproc *rproc)
++{
++	struct rcar_rproc *priv = rproc->priv;
++	struct device *dev = &rproc->dev;
++	struct mbox_client *cl;
++	int ret = 0;
++
++	cl = &priv->cl;
++	cl->dev = dev->parent;
++	cl->tx_block = true;
++	cl->tx_tout = 500;
++	cl->knows_txdone = false;
++	cl->rx_callback = rcar_rproc_rx_callback;
++
++	priv->tx_ch = mbox_request_channel_byname(cl, "tx");
++	if (IS_ERR(priv->tx_ch)) {
++		if (PTR_ERR(priv->tx_ch) == -EPROBE_DEFER)
++			return -EPROBE_DEFER;
++		ret = PTR_ERR(priv->tx_ch);
++		dev_dbg(cl->dev, "failed to request mbox tx chan, ret %d\n",
++			ret);
++		goto err_out;
++	}
++
++	priv->rx_ch = mbox_request_channel_byname(cl, "rx");
++	if (IS_ERR(priv->rx_ch)) {
++		if (PTR_ERR(priv->rx_ch) == -EPROBE_DEFER)
++			return -EPROBE_DEFER;
++		ret = PTR_ERR(priv->rx_ch);
++		dev_dbg(cl->dev, "failed to request mbox tx chan, ret %d\n",
++			ret);
++		goto err_out;
++	}
++	INIT_WORK(&priv->vq_work, rcar_rproc_vq_work);
++
++	return ret;
++
++err_out:
++	if (!IS_ERR(priv->tx_ch))
++		mbox_free_channel(priv->tx_ch);
++	if (!IS_ERR(priv->rx_ch))
++		mbox_free_channel(priv->rx_ch);
++
++	return ret;
++}
++
++static void rcar_rproc_kick(struct rproc *rproc, int vqid)
++{
++	struct rcar_rproc *priv = rproc->priv;
++	int err;
++
++	if (!priv->tx_ch)
++		return;
++	err = mbox_send_message(priv->tx_ch, (void *)&vqid);
++	if (err < 0)
++		dev_err(&rproc->dev, "%s: failed (err:%d)\n",
++			__func__, err);
++	return;
++}
++
++static int rcar_rproc_attach(struct rproc *rproc)
++{
++	return 0;
++}
++
++static struct rproc_ops rcar_rproc_ops = {
++	.attach		= rcar_rproc_attach,
++	.kick		= rcar_rproc_kick,
++};
++
++static int rcar_rproc_pa_to_da(struct rproc *rproc, phys_addr_t pa, u64 *da)
++{
++	/* On RCAR da = pa right ? */
++	*da = pa;
++	return 0;
++};
++
++static int rcar_rproc_da_to_pa(struct rproc *rproc, u64 da, phys_addr_t *pa)
++{
++	/* On RCAR pa = da right ? */
++	*pa = da;
++	return 0;
++};
++
++static int rcar_rproc_mem_alloc(struct rproc *rproc,
++				 struct rproc_mem_entry *mem)
++{
++	struct device *dev = rproc->dev.parent;
++	void *va;
++
++	va = ioremap_wc(mem->dma, mem->len);
++	if (IS_ERR_OR_NULL(va)) {
++		dev_err(dev, "Unable to map memory region: %pa+%lx\n",
++			&mem->dma, mem->len);
++		return -ENOMEM;
++	}
++
++	/* Update memory entry va */
++	mem->va = va;
++
++	return 0;
++}
++
++static int rcar_rproc_mem_release(struct rproc *rproc,
++				   struct rproc_mem_entry *mem)
++{
++	dev_dbg(rproc->dev.parent, "unmap memory: %pa\n", &mem->dma);
++	iounmap(mem->va);
++
++	return 0;
++}
++
++static int rcar_rproc_parse_memory_regions(struct rproc *rproc)
++{
++	struct device *dev = rproc->dev.parent;
++	struct device_node *np = dev->of_node;
++	struct of_phandle_iterator it;
++	struct rproc_mem_entry *mem;
++	struct reserved_mem *rmem;
++	u64 da;
++
++	/* Register associated reserved memory regions */
++	of_phandle_iterator_init(&it, np, "memory-region", NULL, 0);
++	while (of_phandle_iterator_next(&it) == 0) {
++
++		rmem = of_reserved_mem_lookup(it.node);
++		if (!rmem) {
++			dev_err(dev, "unable to acquire memory-region\n");
++			return -EINVAL;
++		}
++
++		if (rcar_rproc_pa_to_da(rproc, rmem->base, &da) < 0) {
++			dev_err(dev, "memory region not valid %pa\n",
++				&rmem->base);
++			return -EINVAL;
++		}
++
++		mem = rproc_mem_entry_init(dev, NULL,
++					   (dma_addr_t)rmem->base,
++					   rmem->size, da,
++					   rcar_rproc_mem_alloc,
++					   rcar_rproc_mem_release,
++					   it.node->name);
++
++		if (!mem)
++			return -ENOMEM;
++
++		rproc_add_carveout(rproc, mem);
++	}
++
++	return 0;
++};
++
++static int rcar_rproc_get_syscon(struct device_node *np, const char *prop,
++				  struct rcar_syscon *syscon)
++{
++	int err = 0;
++	syscon->map = syscon_regmap_lookup_by_phandle(np, prop);
++	if (IS_ERR(syscon->map)) {
++		err = -EPROBE_DEFER;
++		syscon->map = NULL;
++		goto out;
++	}
++
++	err = of_property_read_u32_index(np, prop, 1, &syscon->reg);
++	if (err)
++		goto out;
++
++	err = of_property_read_u32_index(np, prop, 2, &syscon->mask);
++
++out:
++	return err;
++}
++
++/*
++ * Remoteproc is supposed to fill in the resource table address in the syscon register.
++ */
++static int rcar_rproc_get_loaded_rsc_table(struct platform_device *pdev,
++					struct rproc *rproc, struct rcar_rproc *priv)
++{
++	struct device *dev = &pdev->dev;
++	phys_addr_t rsc_pa;
++	u32 rsc_da;
++	int err;
++
++	/* See if we can get the resource table */
++	err = rcar_rproc_get_syscon(dev->of_node, "rcar,syscfg-rsc-tbl",
++				     &priv->rsctbl);
++	if (err) {
++		/* no rsc table syscon */
++		dev_warn(dev, "rsc tbl syscon not supported\n");
++		return err;
++	}
++
++	err = regmap_read(priv->rsctbl.map, priv->rsctbl.reg, &rsc_da);
++	if (err) {
++		dev_err(dev, "failed to read rsc tbl addr\n");
++		return err;
++	}
++
++	if (!rsc_da) {
++		/* no rsc table */
++		dev_err(dev, "Ressource table empty does device has booted yet ?");
++		return -ENOENT;
++	}
++
++	err = rcar_rproc_da_to_pa(rproc, rsc_da, &rsc_pa);
++	if (err)
++		return err;
++	/*FIXME: need to unmap */
++	priv->rsc_va = ioremap_wc(rsc_pa, RSC_TBL_SIZE);
++	if (IS_ERR_OR_NULL(priv->rsc_va)) {
++		dev_err(dev, "Unable to map memory region: %pa+%x\n",
++			&rsc_pa, RSC_TBL_SIZE);
++		priv->rsc_va = NULL;
++		return -ENOMEM;
++	}
++
++	/*
++	 * The resource table is already loaded in device memory, no need
++	 * to work with a cached table.
++	 */
++	rproc->cached_table = NULL;
++	/* Assuming the resource table fits in 1kB is fair */
++	rproc->table_sz = RSC_TBL_SIZE;
++	rproc->table_ptr = (struct resource_table *)priv->rsc_va;
++
++	return 0;
++};
++
++static int rcar_rproc_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct device_node *np = dev->of_node;
++	struct rcar_rproc *priv;
++	struct rproc *rproc;
++	int ret;
++
++	rproc = rproc_alloc(dev, np->name, &rcar_rproc_ops,
++			    NULL, sizeof(*priv));
++
++	if (!rproc)
++		return -ENOMEM;
++
++	priv = rproc->priv;
++	priv->rproc = rproc;
++	priv->dev = dev;
++
++	dev_set_drvdata(dev, rproc);
++
++	ret = rcar_rproc_get_loaded_rsc_table(pdev, rproc, priv);
++	if (ret)
++		goto free_rproc;
++
++	ret = rcar_rproc_parse_memory_regions(rproc);
++	if (ret)
++		goto free_rproc;
++
++	/* Assume rproc is loaded by another component e.g u-boot */
++	rproc->state = RPROC_DETACHED;
++
++	priv->workqueue = create_workqueue(dev_name(dev));
++	if (!priv->workqueue) {
++		dev_err(dev, "cannot create workqueue\n");
++		ret = -ENOMEM;
++		goto free_resources;
++	}
++
++	ret = rcar_rproc_request_mbox(rproc);
++	if (ret)
++		goto free_wkq;
++
++	ret = rproc_add(rproc);
++	if (ret) {
++		dev_err(dev, "rproc_add failed\n");
++		goto free_mb;
++	}
++
++	return 0;
++
++free_mb:
++	rcar_rproc_free_mbox(rproc);
++free_wkq:
++	destroy_workqueue(priv->workqueue);
++free_resources:
++	rproc_resource_cleanup(rproc);
++free_rproc:
++	rproc_free(rproc);
++
++	return ret;
++}
++
++static int rcar_rproc_remove(struct platform_device *pdev)
++{
++	struct rproc *rproc = platform_get_drvdata(pdev);
++	struct rcar_rproc *priv = rproc->priv;
++
++	rproc_del(rproc);
++	rcar_rproc_free_mbox(rproc);
++	destroy_workqueue(priv->workqueue);
++	if (priv->rsc_va)
++		iounmap(priv->rsc_va);
++	rproc_free(rproc);
++
++	return 0;
++}
++
++static const struct of_device_id rcar_rproc_of_match[] = {
++	{ .compatible = "renesas,rcar-cr7" },
++	{},
++};
++
++MODULE_DEVICE_TABLE(of, rcar_rproc_of_match);
++
++static struct platform_driver rcar_rproc_driver = {
++	.probe = rcar_rproc_probe,
++	.remove = rcar_rproc_remove,
++	.driver = {
++		.name = "rcar-rproc",
++		.of_match_table = rcar_rproc_of_match,
++	},
++};
++
++module_platform_driver(rcar_rproc_driver);
++
++MODULE_LICENSE("GPL v2");
++MODULE_DESCRIPTION("Renesas Gen3 RCAR remote processor control driver");
++MODULE_AUTHOR("Julien Massot <julien.massot@iot.bzh>");
+-- 
+2.26.2
+
+
+From 8264466916074bbff59f2e510b68040c7ccc2527 Mon Sep 17 00:00:00 2001
+From: Julien Massot <julien.massot@iot.bzh>
+Date: Mon, 26 Oct 2020 16:15:58 +0100
+Subject: [PATCH 15/15] ebisu-4d.dts: add definition for Cortex-R7 remoteproc
+
+Add Mailbox and remoteproc, also add the shm area for rpmsg.
+
+Note that this patch disable the support of mfis-lock and mfis-as,
+since register area are conflicting.
+---
+ .../boot/dts/renesas/r8a77990-ebisu-4d.dts    | 32 ++++++++++++++++
+ arch/arm64/boot/dts/renesas/r8a77990.dtsi     | 37 ++++++++++++-------
+ 2 files changed, 56 insertions(+), 13 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/renesas/r8a77990-ebisu-4d.dts b/arch/arm64/boot/dts/renesas/r8a77990-ebisu-4d.dts
+index 1c19504c672b..1af92c67d5d4 100644
+--- a/arch/arm64/boot/dts/renesas/r8a77990-ebisu-4d.dts
++++ b/arch/arm64/boot/dts/renesas/r8a77990-ebisu-4d.dts
+@@ -19,6 +19,30 @@
+ 	};
+ 
+ 	reserved-memory {
++		#address-cells = <2>;
++		#size-cells = <2>;
++		ranges;
++
++		cr7_ram: cr7_ram@0x40040000 {
++			no-map;
++			reg = <0x0 0x40040000 0x0 0x1fc0000>;
++		};
++
++		vdev0vring0: vdev0vring0@42000000 {
++			no-map;
++			reg = <0x0 0x42000000 0x0 0x1000>;
++		};
++
++		vdev0vring1: vdev0vring1@42010000 {
++			no-map;
++			reg = <0x0 0x42010000 0x0 0x1000>;
++		};
++
++		vdev0buffer: vdev0buffer@42020000 {
++			no-map;
++			reg = <0x0 0x42020000 0x0 0x4000>;
++		};
++
+ 		/* device specific region for Lossy Decompression */
+ 		lossy_decompress: linux,lossy_decompress@54000000 {
+ 			no-map;
+@@ -35,3 +59,11 @@
+ 	/* Map all possible DDR as inbound ranges */
+ 	dma-ranges = <0x42000000 0 0x40000000 0 0x40000000 0 0x80000000>;
+ };
++
++&cr7_rproc {
++	memory-region = <&cr7_ram>, <&vdev0vring0>, <&vdev0vring1>, <&vdev0buffer>;
++	mboxes = <&mfis 0>, <&mfis 1>;
++	mbox-names = "tx", "rx";
++	rcar,syscfg-rsc-tbl = <&mfisarembr 0x0 0xFFFFFFFF>;
++	status = "okay";
++};
+diff --git a/arch/arm64/boot/dts/renesas/r8a77990.dtsi b/arch/arm64/boot/dts/renesas/r8a77990.dtsi
+index 98c6be89e7e3..2bd7010be060 100755
+--- a/arch/arm64/boot/dts/renesas/r8a77990.dtsi
++++ b/arch/arm64/boot/dts/renesas/r8a77990.dtsi
+@@ -202,19 +202,11 @@
+ 		#size-cells = <2>;
+ 		ranges;
+ 
+-		mfis: mfis@e6260000 {
+-			compatible = "renesas,mfis-lock-r8a77990",
+-				     "renesas,mfis-lock";
+-			reg = <0 0xe6260000 0 0x1000>;
+-			#hwlock-cells = <1>;
+-
+-			mfis_as: mfis-as {
+-				compatible = "renesas,mfis-as-r8a77990",
+-					     "renesas,mfis-as";
+-				interrupts = <GIC_SPI 180 IRQ_TYPE_LEVEL_HIGH>;
+-				interrupt-names = "eicr0";
+-				renesas,mfis-ch = <0>;
+-			};
++		cr7_rproc: cr7@40040000 {
++			compatible = "renesas,rcar-cr7";
++			power-domains = <&sysc R8A77990_PD_CR7>;
++			resets = <&cpg 222>;
++			status = "disabled";
+ 		};
+ 
+ 		rwdt: watchdog@e6020000 {
+@@ -470,6 +462,25 @@
+ 			power-domains = <&sysc R8A77990_PD_ALWAYS_ON>;
+ 		};
+ 
++		mfis: mailbox@e6260400 {
++			compatible = "renesas,rcar-ipcc";
++			#mbox-cells = <1>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++			reg = <0 0xe6260400 0 0x10>;
++			interrupts =
++				<GIC_SPI 224 IRQ_TYPE_LEVEL_HIGH>,
++				<GIC_SPI 225 IRQ_TYPE_LEVEL_HIGH>;
++			interrupt-names = "tx", "rx";
++			clocks = <&cpg CPG_MOD 213>;
++			resets = <&cpg 213>;
++		};
++
++		mfisarembr: mfisarembr@e6260460{
++			compatible = "simple-bus", "syscon", "simple-mfd";
++			reg = <0 0xe6260460 0 0x20>;
++		};
++
+ 		i2c0: i2c@e6500000 {
+ 			#address-cells = <1>;
+ 			#size-cells = <0>;
+-- 
+2.26.2
+
