@@ -1,7 +1,7 @@
 From 306efce6fd190e4cd09997dd8965f6268718a56d Mon Sep 17 00:00:00 2001
 From: Mathieu Poirier <mathieu.poirier@linaro.org>
 Date: Tue, 14 Jul 2020 13:50:27 -0600
-Subject: [PATCH 01/15] remoteproc: Add new RPROC_DETACHED state
+Subject: [PATCH 01/16] remoteproc: Add new RPROC_DETACHED state
 
 Add a new RPROC_DETACHED state to take into account scenarios
 where the remoteproc core needs to attach to a remote processor
@@ -59,7 +59,7 @@ index 16ad66683ad0..33685ba94944 100644
 From 25e929cb7209a29f2b1f54c4c1d841f7c8ca7c32 Mon Sep 17 00:00:00 2001
 From: Julien Massot <julien.massot@iot.bzh>
 Date: Mon, 26 Oct 2020 10:50:53 +0100
-Subject: [PATCH 02/15] remoteproc: Add new attach() remoteproc operation
+Subject: [PATCH 02/16] remoteproc: Add new attach() remoteproc operation
 
 Add an new attach() operation in order to properly deal with
 scenarios where the remoteproc core needs to attach to a
@@ -140,7 +140,7 @@ index 33685ba94944..4363a46e213f 100644
 From 86f471d0d86a9080916a186cad179f55fa39d4cb Mon Sep 17 00:00:00 2001
 From: Mathieu Poirier <mathieu.poirier@linaro.org>
 Date: Tue, 14 Jul 2020 13:50:29 -0600
-Subject: [PATCH 03/15] remoteproc: Introducing function rproc_attach()
+Subject: [PATCH 03/16] remoteproc: Introducing function rproc_attach()
 
 Introducing function rproc_attach() to enact the same actions as
 rproc_start(), but without the steps related to the handling of
@@ -217,7 +217,7 @@ index 3c5fbbbfb0f1..49a61784006b 100644
 From 772b289a87cc147763b7c5499fcf8e401e536c93 Mon Sep 17 00:00:00 2001
 From: Mathieu Poirier <mathieu.poirier@linaro.org>
 Date: Tue, 14 Jul 2020 13:50:30 -0600
-Subject: [PATCH 04/15] remoteproc: Introducing function rproc_actuate()
+Subject: [PATCH 04/16] remoteproc: Introducing function rproc_actuate()
 
 Introduce function rproc_actuate() that provides the same
 functionatlity as rproc_fw_boot(), but without the steps that
@@ -319,7 +319,7 @@ index 49a61784006b..d5c120a2bbe7 100644
 From ee8df0a867325da7087080fbd72ec12ca8854fa4 Mon Sep 17 00:00:00 2001
 From: Mathieu Poirier <mathieu.poirier@linaro.org>
 Date: Tue, 14 Jul 2020 13:50:31 -0600
-Subject: [PATCH 05/15] remoteproc: Introducing function rproc_validate()
+Subject: [PATCH 05/16] remoteproc: Introducing function rproc_validate()
 
 Add a new function to assert the general health of the remote
 processor before handing it to the remoteproc core.
@@ -399,7 +399,7 @@ index d5c120a2bbe7..b1482eee823d 100644
 From a569ad48de7815a42f32402dafabb86db269c710 Mon Sep 17 00:00:00 2001
 From: Mathieu Poirier <mathieu.poirier@linaro.org>
 Date: Tue, 14 Jul 2020 13:50:32 -0600
-Subject: [PATCH 06/15] remoteproc: Refactor function rproc_boot()
+Subject: [PATCH 06/16] remoteproc: Refactor function rproc_boot()
 
 Refactor function rproc_boot() to properly deal with scenarios
 where the remoteproc core needs to attach with a remote
@@ -475,7 +475,7 @@ index b1482eee823d..ede85a6baa1e 100644
 From bc4d6db80872ab5301ec6074ee7898725def16f4 Mon Sep 17 00:00:00 2001
 From: Mathieu Poirier <mathieu.poirier@linaro.org>
 Date: Tue, 14 Jul 2020 13:50:33 -0600
-Subject: [PATCH 07/15] remoteproc: Refactor function rproc_trigger_auto_boot()
+Subject: [PATCH 07/16] remoteproc: Refactor function rproc_trigger_auto_boot()
 
 Refactor function rproc_trigger_auto_boot() to properly deal
 with scenarios where the remoteproc core needs to attach with a
@@ -518,7 +518,7 @@ index ede85a6baa1e..4bd0282b78de 100644
 From 873bb348af6489abdf63e4458066efab19be42bb Mon Sep 17 00:00:00 2001
 From: Mathieu Poirier <mathieu.poirier@linaro.org>
 Date: Tue, 14 Jul 2020 13:50:34 -0600
-Subject: [PATCH 08/15] remoteproc: Refactor function rproc_free_vring()
+Subject: [PATCH 08/16] remoteproc: Refactor function rproc_free_vring()
 
 When function rproc_free_vring() clears the virtio device section
 it does so on the cached resource table rather than the one
@@ -574,7 +574,7 @@ index 4bd0282b78de..5aa37fdbb4a5 100644
 From fe98b934a9968f39f38a17444c86a913ec687968 Mon Sep 17 00:00:00 2001
 From: Mathieu Poirier <mathieu.poirier@linaro.org>
 Date: Tue, 14 Jul 2020 13:50:35 -0600
-Subject: [PATCH 09/15] remoteproc: Properly handle firmware name when
+Subject: [PATCH 09/16] remoteproc: Properly handle firmware name when
  attaching
 
 This patch prevents the firmware image name from being displayed when
@@ -684,7 +684,7 @@ index 4363a46e213f..215f2e68c7e9 100644
 From fa5dc4e58edc3fe792571d9abd4a9b1066bd0263 Mon Sep 17 00:00:00 2001
 From: Mathieu Poirier <mathieu.poirier@linaro.org>
 Date: Tue, 14 Jul 2020 14:04:41 -0600
-Subject: [PATCH 10/15] remoteproc: Make function rproc_resource_cleanup()
+Subject: [PATCH 10/16] remoteproc: Make function rproc_resource_cleanup()
  public
 
 Make function rproc_resource_cleanup() public so that it can be
@@ -740,7 +740,7 @@ index 215f2e68c7e9..8287f11727f6 100644
 From 85aafe06ad06dcf965b94caa4b20e6b94f540caa Mon Sep 17 00:00:00 2001
 From: Julien Massot <julien.massot@iot.bzh>
 Date: Mon, 26 Oct 2020 11:03:05 +0100
-Subject: [PATCH 11/15] remoteproc: Add prepare and unprepare ops
+Subject: [PATCH 11/16] remoteproc: Add prepare and unprepare ops
 
 On some SoC architecture, it is needed to enable HW like
 clock, bus, regulator, memory region... before loading
@@ -838,7 +838,7 @@ index 8287f11727f6..8c65082527d7 100644
 From 1e1bcb3090748f1c35708e80935c6b4bc4c54354 Mon Sep 17 00:00:00 2001
 From: Julien Massot <julien.massot@iot.bzh>
 Date: Wed, 23 Sep 2020 14:28:56 +0200
-Subject: [PATCH 12/15] clk: add clock for MFIS registers
+Subject: [PATCH 12/16] clk: add clock for MFIS registers
 
 ---
  drivers/clk/renesas/r8a7795-cpg-mssr.c  | 1 +
@@ -877,7 +877,7 @@ index 4e0671f81d7b..afabd22aa4fd 100644
 From 61a7eb99263a4cca3fd75d2142b509625da25356 Mon Sep 17 00:00:00 2001
 From: Julien Massot <julien.massot@iot.bzh>
 Date: Mon, 26 Oct 2020 10:46:18 +0100
-Subject: [PATCH 13/15] add mailbox driver
+Subject: [PATCH 13/16] add mailbox driver
 
 ---
  drivers/mailbox/Kconfig     |   8 ++
@@ -1167,7 +1167,7 @@ index 000000000000..73518cd00e9a
 From a9c6c1d175a02f42dcf1ad02c40bf94680459a2d Mon Sep 17 00:00:00 2001
 From: Julien Massot <julien.massot@iot.bzh>
 Date: Mon, 26 Oct 2020 10:46:35 +0100
-Subject: [PATCH 14/15] add rcar_rproc driver
+Subject: [PATCH 14/16] add rcar_rproc driver
 
 ---
  drivers/remoteproc/Kconfig      |  15 ++
@@ -1616,10 +1616,10 @@ index 000000000000..fb71aaf525f3
 2.26.2
 
 
-From 8264466916074bbff59f2e510b68040c7ccc2527 Mon Sep 17 00:00:00 2001
+From 37b106a7a686e20b8c0cff5fcb6eb33069d1a35f Mon Sep 17 00:00:00 2001
 From: Julien Massot <julien.massot@iot.bzh>
 Date: Mon, 26 Oct 2020 16:15:58 +0100
-Subject: [PATCH 15/15] ebisu-4d.dts: add definition for Cortex-R7 remoteproc
+Subject: [PATCH 15/16] ebisu-4d.dts: add definition for Cortex-R7 remoteproc
 
 Add Mailbox and remoteproc, also add the shm area for rpmsg.
 
@@ -1721,6 +1721,123 @@ index 98c6be89e7e3..2bd7010be060 100755
 +				<GIC_SPI 225 IRQ_TYPE_LEVEL_HIGH>;
 +			interrupt-names = "tx", "rx";
 +			clocks = <&cpg CPG_MOD 213>;
++			resets = <&cpg 213>;
++		};
++
++		mfisarembr: mfisarembr@e6260460{
++			compatible = "simple-bus", "syscon", "simple-mfd";
++			reg = <0 0xe6260460 0 0x20>;
++		};
++
+ 		i2c0: i2c@e6500000 {
+ 			#address-cells = <1>;
+ 			#size-cells = <0>;
+-- 
+2.26.2
+
+
+From 151bb343e6a56b201cfd2d5b49e5a3e184c531f7 Mon Sep 17 00:00:00 2001
+From: Julien Massot <julien.massot@iot.bzh>
+Date: Tue, 27 Oct 2020 18:02:58 +0100
+Subject: [PATCH 16/16] h3ulcb.dts: add definition for Cortex-R7 remoteproc
+
+Add Mailbox and remoteproc, also add the shm area for rpmsg.
+
+Note that this patch disable the support of mfis-lock and mfis-as,
+since register area are conflicting.
+---
+ .../arm64/boot/dts/renesas/r8a7795-h3ulcb.dts | 28 ++++++++++++++
+ arch/arm64/boot/dts/renesas/r8a7795.dtsi      | 38 ++++++++++++-------
+ 2 files changed, 53 insertions(+), 13 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/renesas/r8a7795-h3ulcb.dts b/arch/arm64/boot/dts/renesas/r8a7795-h3ulcb.dts
+index 87132c0fe4b4..c02560e044e5 100644
+--- a/arch/arm64/boot/dts/renesas/r8a7795-h3ulcb.dts
++++ b/arch/arm64/boot/dts/renesas/r8a7795-h3ulcb.dts
+@@ -40,6 +40,26 @@
+ 		#size-cells = <2>;
+ 		ranges;
+ 
++		cr7_ram: cr7_ram@0x40040000 {
++			no-map;
++			reg = <0x0 0x40040000 0x0 0x1fc0000>;
++		};
++
++		vdev0vring0: vdev0vring0@42000000 {
++			no-map;
++			reg = <0x0 0x42000000 0x0 0x1000>;
++		};
++
++		vdev0vring1: vdev0vring1@42010000 {
++			no-map;
++			reg = <0x0 0x42010000 0x0 0x1000>;
++		};
++
++		vdev0buffer: vdev0buffer@42020000 {
++			no-map;
++			reg = <0x0 0x42020000 0x0 0x4000>;
++		};
++
+ 		/* device specific region for Lossy Decompression */
+ 		lossy_decompress: linux,lossy_decompress@54000000 {
+ 			no-map;
+@@ -118,3 +138,11 @@
+ &vspi1 {
+ 	status = "okay";
+ };
++
++&cr7_rproc {
++	memory-region = <&cr7_ram>, <&vdev0vring0>, <&vdev0vring1>, <&vdev0buffer>;
++	mboxes = <&mfis 0>, <&mfis 1>;
++	mbox-names = "tx", "rx";
++	rcar,syscfg-rsc-tbl = <&mfisarembr 0x0 0xFFFFFFFF>;
++	status = "okay";
++};
+diff --git a/arch/arm64/boot/dts/renesas/r8a7795.dtsi b/arch/arm64/boot/dts/renesas/r8a7795.dtsi
+index cfed8e110f01..89a6abc44a1d 100755
+--- a/arch/arm64/boot/dts/renesas/r8a7795.dtsi
++++ b/arch/arm64/boot/dts/renesas/r8a7795.dtsi
+@@ -807,19 +807,11 @@
+ 		#size-cells = <2>;
+ 		ranges;
+ 
+-		mfis: mfis@e6260000 {
+-			compatible = "renesas,mfis-lock-r8a7795",
+-				     "renesas,mfis-lock";
+-			reg = <0 0xe6260000 0 0x1000>;
+-			#hwlock-cells = <1>;
+-
+-			mfis_as: mfis-as {
+-				compatible = "renesas,mfis-as-r8a7795",
+-					     "renesas,mfis-as";
+-				interrupts = <GIC_SPI 180 IRQ_TYPE_LEVEL_HIGH>;
+-				interrupt-names = "eicr0";
+-				renesas,mfis-ch = <0>;
+-			};
++		cr7_rproc: cr7@40040000 {
++			compatible = "renesas,rcar-cr7";
++			power-domains = <&sysc R8A7795_PD_CR7>;
++			resets = <&cpg 222>;
++			status = "disabled";
+ 		};
+ 
+ 		rwdt: watchdog@e6020000 {
+@@ -1081,6 +1073,26 @@
+ 			power-domains = <&sysc R8A7795_PD_ALWAYS_ON>;
+ 		};
+ 
++		mfis: mailbox@e6260400 {
++			compatible = "renesas,rcar-ipcc";
++			#mbox-cells = <1>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++			reg = <0 0xe6260400 0 0x10>;
++			interrupts =
++				<GIC_SPI 224 IRQ_TYPE_LEVEL_HIGH>,
++				<GIC_SPI 225 IRQ_TYPE_LEVEL_HIGH>;
++			interrupt-names = "tx", "rx";
++			clocks = <&cpg  CPG_MOD 213>;
++			power-domains = <&sysc R8A7795_PD_ALWAYS_ON>;
 +			resets = <&cpg 213>;
 +		};
 +
