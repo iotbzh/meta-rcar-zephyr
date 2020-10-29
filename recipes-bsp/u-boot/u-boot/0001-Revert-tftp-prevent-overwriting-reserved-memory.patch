@@ -1,0 +1,234 @@
+From f4879496af1cbabf1e3d6abb75c5d5635c2901b3 Mon Sep 17 00:00:00 2001
+From: ronan <ronan.lemartret@iot.bzh>
+Date: Fri, 23 Oct 2020 08:48:54 +0200
+Subject: [PATCH] Revert "tftp: prevent overwriting reserved memory"
+
+This reverts commit a156c47e39ad7d007c88919103ee0ee131c6203b.
+---
+ lib/Makefile |   5 ++-
+ net/tftp.c   | 105 +++++++++++++++++++--------------------------------
+ 2 files changed, 42 insertions(+), 68 deletions(-)
+
+diff --git a/lib/Makefile b/lib/Makefile
+index 1fb650cd90..655c49ec7c 100644
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -32,11 +32,13 @@ obj-y += crc7.o
+ obj-y += crc8.o
+ obj-y += crc16.o
+ obj-$(CONFIG_ERRNO_STR) += errno_str.o
++obj-$(CONFIG_OF_LIBFDT) += fdtdec.o
+ obj-$(CONFIG_FIT) += fdtdec_common.o
+ obj-$(CONFIG_TEST_FDTDEC) += fdtdec_test.o
+ obj-$(CONFIG_GZIP_COMPRESSED) += gzip.o
+ obj-$(CONFIG_GENERATE_SMBIOS_TABLE) += smbios.o
+ obj-$(CONFIG_IMAGE_SPARSE) += image-sparse.o
++obj-$(CONFIG_LMB) += lmb.o
+ obj-y += ldiv.o
+ obj-$(CONFIG_MD5) += md5.o
+ obj-$(CONFIG_XXHASH) += xxhash.o
+@@ -90,11 +92,10 @@ obj-y += crc32.o
+ obj-$(CONFIG_CRC32C) += crc32c.o
+ obj-y += ctype.o
+ obj-y += div64.o
+-obj-$(CONFIG_$(SPL_TPL_)OF_LIBFDT) += fdtdec.o fdtdec_common.o
++obj-$(CONFIG_$(SPL_TPL_)OF_LIBFDT) += fdtdec_common.o
+ obj-y += hang.o
+ obj-y += linux_compat.o
+ obj-y += linux_string.o
+-obj-$(CONFIG_LMB) += lmb.o
+ obj-y += membuff.o
+ obj-$(CONFIG_REGEX) += slre.o
+ obj-y += string.o
+diff --git a/net/tftp.c b/net/tftp.c
+index 1e3c18ae69..131acbeaf0 100644
+--- a/net/tftp.c
++++ b/net/tftp.c
+@@ -18,8 +18,6 @@
+ #include <flash.h>
+ #endif
+ 
+-DECLARE_GLOBAL_DATA_PTR;
+-
+ /* Well known TFTP port # */
+ #define WELL_KNOWN_PORT	69
+ /* Millisecs to timeout for lost pkt */
+@@ -84,10 +82,6 @@ static ulong	tftp_block_wrap;
+ /* memory offset due to wrapping */
+ static ulong	tftp_block_wrap_offset;
+ static int	tftp_state;
+-static ulong	tftp_load_addr;
+-#ifdef CONFIG_LMB
+-static ulong	tftp_load_size;
+-#endif
+ #ifdef CONFIG_TFTP_TSIZE
+ /* The file size reported by the server */
+ static int	tftp_tsize;
+@@ -141,11 +135,40 @@ static char tftp_filename[MAX_LEN];
+ static unsigned short tftp_block_size = TFTP_BLOCK_SIZE;
+ static unsigned short tftp_block_size_option = TFTP_MTU_BLOCKSIZE;
+ 
+-static inline int store_block(int block, uchar *src, unsigned int len)
++#ifdef CONFIG_MCAST_TFTP
++#include <malloc.h>
++#define MTFTP_BITMAPSIZE	0x1000
++static unsigned *tftp_mcast_bitmap;
++static int tftp_mcast_prev_hole;
++static int tftp_mcast_bitmap_size = MTFTP_BITMAPSIZE;
++static int tftp_mcast_disabled;
++static int tftp_mcast_master_client;
++static int tftp_mcast_active;
++static int tftp_mcast_port;
++/* can get 'last' block before done..*/
++static ulong tftp_mcast_ending_block;
++
++static void parse_multicast_oack(char *pkt, int len);
++
++static void mcast_cleanup(void)
++{
++	if (net_mcast_addr)
++		eth_mcast_join(net_mcast_addr, 0);
++	if (tftp_mcast_bitmap)
++		free(tftp_mcast_bitmap);
++	tftp_mcast_bitmap = NULL;
++	net_mcast_addr.s_addr = 0;
++	tftp_mcast_active = 0;
++	tftp_mcast_port = 0;
++	tftp_mcast_ending_block = -1;
++}
++
++#endif	/* CONFIG_MCAST_TFTP */
++
++static inline void store_block(int block, uchar *src, unsigned len)
+ {
+ 	ulong offset = block * tftp_block_size + tftp_block_wrap_offset;
+ 	ulong newsize = offset + len;
+-	ulong store_addr = tftp_load_addr + offset;
+ #ifdef CONFIG_SYS_DIRECT_FLASH_TFTP
+ 	int i, rc = 0;
+ 
+@@ -153,45 +176,30 @@ static inline int store_block(int block, uchar *src, unsigned int len)
+ 		/* start address in flash? */
+ 		if (flash_info[i].flash_id == FLASH_UNKNOWN)
+ 			continue;
+-		if (store_addr >= flash_info[i].start[0]) {
++		if (load_addr + offset >= flash_info[i].start[0]) {
+ 			rc = 1;
+ 			break;
+ 		}
+ 	}
+ 
+ 	if (rc) { /* Flash is destination for this packet */
+-		rc = flash_write((char *)src, store_addr, len);
++		rc = flash_write((char *)src, (ulong)(load_addr+offset), len);
+ 		if (rc) {
+ 			flash_perror(rc);
+-			return rc;
++			net_set_state(NETLOOP_FAIL);
++			return;
+ 		}
+ 	} else
+ #endif /* CONFIG_SYS_DIRECT_FLASH_TFTP */
+ 	{
+-		void *ptr;
++		void *ptr = map_sysmem(load_addr + offset, len);
+ 
+-#ifdef CONFIG_LMB
+-		ulong end_addr = tftp_load_addr + tftp_load_size;
+-
+-		if (!end_addr)
+-			end_addr = ULONG_MAX;
+-
+-		if (store_addr < tftp_load_addr ||
+-		    store_addr + len > end_addr) {
+-			puts("\nTFTP error: ");
+-			puts("trying to overwrite reserved memory...\n");
+-			return -1;
+-		}
+-#endif
+-		ptr = map_sysmem(store_addr, len);
+ 		memcpy(ptr, src, len);
+ 		unmap_sysmem(ptr);
+ 	}
+ 
+ 	if (net_boot_file_size < newsize)
+ 		net_boot_file_size = newsize;
+-
+-	return 0;
+ }
+ 
+ /* Clear our state ready for a new transfer */
+@@ -551,11 +559,7 @@ static void tftp_handler(uchar *pkt, unsigned dest, struct in_addr sip,
+ 		timeout_count_max = tftp_timeout_count_max;
+ 		net_set_timeout_handler(timeout_ms, tftp_timeout_handler);
+ 
+-		if (store_block(tftp_cur_block - 1, pkt + 2, len)) {
+-			eth_halt();
+-			net_set_state(NETLOOP_FAIL);
+-			break;
+-		}
++		store_block(tftp_cur_block - 1, pkt + 2, len);
+ 
+ 		/*
+ 		 *	Acknowledge the block just received, which will prompt
+@@ -605,24 +609,6 @@ static void tftp_timeout_handler(void)
+ 	}
+ }
+ 
+-/* Initialize tftp_load_addr and tftp_load_size from load_addr and lmb */
+-static int tftp_init_load_addr(void)
+-{
+-#ifdef CONFIG_LMB
+-	struct lmb lmb;
+-	phys_size_t max_size;
+-
+-	lmb_init_and_reserve(&lmb, gd->bd, (void *)gd->fdt_blob);
+-
+-	max_size = lmb_get_free_size(&lmb, load_addr);
+-	if (!max_size)
+-		return -1;
+-
+-	tftp_load_size = max_size;
+-#endif
+-	tftp_load_addr = load_addr;
+-	return 0;
+-}
+ 
+ void tftp_start(enum proto_t protocol)
+ {
+@@ -719,14 +705,7 @@ void tftp_start(enum proto_t protocol)
+ 	} else
+ #endif
+ 	{
+-		if (tftp_init_load_addr()) {
+-			eth_halt();
+-			net_set_state(NETLOOP_FAIL);
+-			puts("\nTFTP error: ");
+-			puts("trying to overwrite reserved memory...\n");
+-			return;
+-		}
+-		printf("Load address: 0x%lx\n", tftp_load_addr);
++		printf("Load address: 0x%lx\n", load_addr);
+ 		puts("Loading: *\b");
+ 		tftp_state = STATE_SEND_RRQ;
+ #ifdef CONFIG_CMD_BOOTEFI
+@@ -774,15 +753,9 @@ void tftp_start_server(void)
+ {
+ 	tftp_filename[0] = 0;
+ 
+-	if (tftp_init_load_addr()) {
+-		eth_halt();
+-		net_set_state(NETLOOP_FAIL);
+-		puts("\nTFTP error: trying to overwrite reserved memory...\n");
+-		return;
+-	}
+ 	printf("Using %s device\n", eth_get_name());
+ 	printf("Listening for TFTP transfer on %pI4\n", &net_ip);
+-	printf("Load address: 0x%lx\n", tftp_load_addr);
++	printf("Load address: 0x%lx\n", load_addr);
+ 
+ 	puts("Loading: *\b");
+ 
+-- 
+2.26.2
+
