@@ -5,3 +5,10 @@ SRC_URI_append = " \
     file://rcar-rproc.patch \
     file://cr7-rproc.cfg \
     "
+
+
+
+SRC_URI_append = " \
+    file://rpmsg_char_driver.cfg \
+    file://0001-Add-device-driver-for-rcar-r7-rpmsg.patch \
+    "

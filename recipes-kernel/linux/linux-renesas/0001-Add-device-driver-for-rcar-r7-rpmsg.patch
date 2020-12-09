@@ -1,0 +1,319 @@
+From e96dc0316cbdb2ebc216224064b5711a759dd53e Mon Sep 17 00:00:00 2001
+From: ronan <ronan.lemartret@iot.bzh>
+Date: Mon, 7 Dec 2020 15:58:28 +0100
+Subject: [PATCH] Add device driver for rcar r7 rpmsg
+
+Signed-off-by: ronan <ronan.lemartret@iot.bzh>
+---
+ drivers/rpmsg/Kconfig           |   9 ++
+ drivers/rpmsg/Makefile          |   1 +
+ drivers/rpmsg/rpmsg_rcar_char.c | 265 ++++++++++++++++++++++++++++++++
+ 3 files changed, 275 insertions(+)
+ create mode 100644 drivers/rpmsg/rpmsg_rcar_char.c
+
+diff --git a/drivers/rpmsg/Kconfig b/drivers/rpmsg/Kconfig
+index d0322b41eca5..147601684705 100644
+--- a/drivers/rpmsg/Kconfig
++++ b/drivers/rpmsg/Kconfig
+@@ -15,6 +15,15 @@ config RPMSG_CHAR
+ 	  in /dev. They make it possible for user-space programs to send and
+ 	  receive rpmsg packets.
+ 
++config RPMSG_RCAR_CHAR
++	tristate "RPMSG device interface for RCAR board"
++	depends on RPMSG
++	depends on NET
++	help
++	  Say Y here to export rpmsg endpoints as device files, usually found
++	  in /dev. They make it possible for user-space programs to send and
++	  receive rpmsg packets.
++
+ config RPMSG_QCOM_GLINK_NATIVE
+ 	tristate
+ 	select RPMSG
+diff --git a/drivers/rpmsg/Makefile b/drivers/rpmsg/Makefile
+index 9aa859502d27..4934639bc9f0 100644
+--- a/drivers/rpmsg/Makefile
++++ b/drivers/rpmsg/Makefile
+@@ -1,6 +1,7 @@
+ # SPDX-License-Identifier: GPL-2.0
+ obj-$(CONFIG_RPMSG)		+= rpmsg_core.o
+ obj-$(CONFIG_RPMSG_CHAR)	+= rpmsg_char.o
++obj-$(CONFIG_RPMSG_RCAR_CHAR)	+= rpmsg_rcar_char.o
+ obj-$(CONFIG_RPMSG_QCOM_GLINK_RPM) += qcom_glink_rpm.o
+ obj-$(CONFIG_RPMSG_QCOM_GLINK_NATIVE) += qcom_glink_native.o
+ obj-$(CONFIG_RPMSG_QCOM_GLINK_SMEM) += qcom_glink_smem.o
+diff --git a/drivers/rpmsg/rpmsg_rcar_char.c b/drivers/rpmsg/rpmsg_rcar_char.c
+new file mode 100644
+index 000000000000..85ccf50f75d4
+--- /dev/null
++++ b/drivers/rpmsg/rpmsg_rcar_char.c
+@@ -0,0 +1,265 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Remote processor messaging - sample client driver
++ *
++ * Copyright (C) 2011 Texas Instruments, Inc.
++ * Copyright (C) 2011 Google, Inc.
++ *
++ * Ohad Ben-Cohen <ohad@wizery.com>
++ * Brian Swetland <swetland@google.com>
++ */
++#include <linux/cdev.h>
++#include <linux/device.h>
++#include <linux/fs.h>
++#include <linux/idr.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/rpmsg.h>
++#include <linux/slab.h>
++
++#define RPMSG_DEV_MAX	(MINORMASK + 1)
++static int count = 100;
++module_param(count, int, 0644);
++static dev_t rpmsg_major;
++static struct class *rpmsg_class;
++
++#define BUFFER_SIZE 1024
++static char device_buffer[BUFFER_SIZE];
++
++struct instance_data {
++	int rx_count;
++};
++
++
++struct rpmsg_eptdev {
++	struct device dev;
++	struct cdev cdev;
++
++	struct rpmsg_device *rpdev;
++};
++
++#define dev_to_eptdev(dev) container_of(dev, struct rpmsg_eptdev, dev)
++#define cdev_to_eptdev(i_cdev) container_of(i_cdev, struct rpmsg_eptdev, cdev)
++
++
++static int rpmsg_sample_cb(struct rpmsg_device *rpdev, void *data, int len,
++						void *priv, u32 src)
++{
++	int ret;
++	struct instance_data *idata = dev_get_drvdata(&rpdev->dev);
++
++	dev_info(&rpdev->dev, "incoming msg %d (src: 0x%x)\n",
++		 ++idata->rx_count, src);
++
++	print_hex_dump_debug(__func__, DUMP_PREFIX_NONE, 16, 1, data, len,
++			     true);
++
++        strncpy(device_buffer, data, len);
++	/* samples should not live forever */
++	if (idata->rx_count >= count) {
++		dev_info(&rpdev->dev, "goodbye!\n");
++		return 0;
++	}
++
++	return 0;
++}
++
++static int rpmsg_eptdev_open(struct inode *inode, struct file *filp)
++{
++	struct rpmsg_eptdev *eptdev = cdev_to_eptdev(inode->i_cdev);
++	//struct rpmsg_endpoint *ept;
++	//struct rpmsg_device *rpdev = eptdev->rpdev;
++	struct device *dev = &eptdev->dev;
++
++	get_device(dev);
++
++	filp->private_data = eptdev;
++
++	return 0;
++}
++
++static void rpmsg_eptdev_release_device(struct device *dev)
++{
++	struct rpmsg_eptdev *eptdev = dev_to_eptdev(dev);
++
++	//ida_simple_remove(&rpmsg_ept_ida, dev->id);
++	//ida_simple_remove(&rpmsg_minor_ida, MINOR(eptdev->dev.devt));
++	cdev_del(&eptdev->cdev);
++	kfree(eptdev);
++}
++
++static int rpmsg_eptdev_release(struct inode *inode, struct file *filp)
++{
++	struct rpmsg_eptdev *eptdev = cdev_to_eptdev(inode->i_cdev);
++	struct device *dev = &eptdev->dev;
++
++	put_device(dev);
++
++	return 0;
++}
++
++static ssize_t device_read(struct file *fp, char *buff, size_t length, loff_t *ppos)
++{
++        int maxbytes;           /* maximum bytes that can be read from ppos to BUFFER_SIZE*/
++        int bytes_to_read;      /* gives the number of bytes to read*/
++        int bytes_read;         /* number of bytes actually read*/
++        maxbytes = BUFFER_SIZE - *ppos;
++        if (maxbytes > length)
++                bytes_to_read = length;
++        else
++                bytes_to_read = maxbytes;
++        if (bytes_to_read == 0)
++                printk(KERN_INFO "charDev : Reached the end of the device\n");
++
++        bytes_read = bytes_to_read - copy_to_user(buff, device_buffer + *ppos, bytes_to_read);
++        printk(KERN_INFO "charDev : device has been read %d\n", bytes_read);
++
++        *ppos += bytes_read;
++        printk(KERN_INFO "charDev : device has been read\n");
++
++        return bytes_read;
++}
++
++static ssize_t device_write(struct file *fp, const char *buff, size_t length, loff_t *ppos)
++{
++        int ret;
++        int maxbytes;           /* maximum bytes that can be read from ppos to BUFFER_SIZE*/
++        int bytes_to_write;     /* gives the number of bytes to write*/
++        int bytes_writen;       /* number of bytes actually writen*/
++        maxbytes = BUFFER_SIZE - *ppos;
++        if (maxbytes > length)
++                bytes_to_write = length;
++        else
++                bytes_to_write = maxbytes;
++
++        char device_rcv_buffer[BUFFER_SIZE];
++        bytes_writen = bytes_to_write - copy_from_user(device_rcv_buffer + *ppos, buff, bytes_to_write);
++        printk(KERN_INFO "charDev : device has been written %d\n", bytes_writen);
++        *ppos += bytes_writen;
++        printk(KERN_INFO "charDev : device has been written %s\n",device_rcv_buffer);
++
++        struct rpmsg_eptdev *eptdev = fp->private_data;
++	/* send a message to our remote processor */
++	ret = rpmsg_send(eptdev->rpdev->ept, device_rcv_buffer, strlen(device_rcv_buffer));
++	if (ret) {
++		dev_err(&eptdev->rpdev->dev, "rpmsg_send failed: %d\n", ret);
++		return ret;
++	}
++
++        return bytes_writen;
++}
++
++
++static const struct file_operations rpmsg_eptdev_fops = {
++	.owner = THIS_MODULE,
++	.open = rpmsg_eptdev_open,
++	.release = rpmsg_eptdev_release,
++        .write = device_write,  /* to write to the device*/
++        .read = device_read,    /* to read the device*/
++};
++
++static int rpmsg_sample_probe(struct rpmsg_device *rpdev)
++{
++	int ret;
++	struct instance_data *idata;
++        struct rpmsg_eptdev *eptdev;
++	struct device *dev;
++        
++        eptdev = kzalloc(sizeof(*eptdev), GFP_KERNEL);
++	if (!eptdev)
++		return -ENOMEM;
++        dev = &eptdev->dev;
++	dev_info(&rpdev->dev, "new channel: 0x%x -> 0x%x!\n",
++					rpdev->src, rpdev->dst);
++
++	idata = devm_kzalloc(&rpdev->dev, sizeof(*idata), GFP_KERNEL);
++	if (!idata)
++		return -ENOMEM;
++
++	dev_set_drvdata(&rpdev->dev, idata);
++
++        eptdev->rpdev = rpdev;
++
++	device_initialize(dev);
++	dev->class = rpmsg_class;
++	dev->parent = &rpdev->dev;
++	dev->groups = NULL;
++        
++	dev_set_drvdata(dev, eptdev);
++
++        cdev_init(&eptdev->cdev, &rpmsg_eptdev_fops);
++        eptdev->cdev.owner = THIS_MODULE;
++        dev->devt = MKDEV(MAJOR(rpmsg_major), 0);//RLM replace 0 by ida_simple_get?
++	dev->id = 0;
++	dev_set_name(dev, "rpmsg%d", 0);
++
++	ret = cdev_add(&eptdev->cdev, dev->devt, 1);
++	if (ret)
++		goto clean_me;
++
++	dev->release = rpmsg_eptdev_release_device;
++
++	ret = device_add(dev);
++	if (ret) {
++		dev_err(dev, "device_add failed: %d\n", ret);
++		put_device(dev);
++	}
++	return 0;
++
++clean_me:
++        return ret;
++}
++
++static void rpmsg_sample_remove(struct rpmsg_device *rpdev)
++{
++	dev_info(&rpdev->dev, "rpmsg sample client driver is removed\n");
++}
++
++static struct rpmsg_device_id rpmsg_driver_sample_id_table[] = {
++	{ .name	= "rpmsg-client-sample" },
++	{ },
++};
++MODULE_DEVICE_TABLE(rpmsg, rpmsg_driver_sample_id_table);
++
++static struct rpmsg_driver rpmsg_sample_client = {
++	.drv.name	= KBUILD_MODNAME,
++	.id_table	= rpmsg_driver_sample_id_table,
++	.probe		= rpmsg_sample_probe,
++	.callback	= rpmsg_sample_cb,
++	.remove		= rpmsg_sample_remove,
++};
++
++static int rpmsg_char_init(void)
++{
++	int ret;
++	ret = alloc_chrdev_region(&rpmsg_major, 0, RPMSG_DEV_MAX, "rpmsg");
++	if (ret < 0) {
++		pr_err("rpmsg: failed to allocate char dev region\n");
++		return ret;
++	}
++	rpmsg_class = class_create(THIS_MODULE, "rpmsg");
++	if (IS_ERR(rpmsg_class)) {
++		pr_err("failed to create rpmsg class\n");
++		unregister_chrdev_region(rpmsg_major, RPMSG_DEV_MAX);
++		return PTR_ERR(rpmsg_class);
++	}
++        ret = register_rpmsg_driver(&rpmsg_sample_client);
++	if (ret < 0) {
++		pr_err("rpmsgchr: failed to register rpmsg driver\n");
++		class_destroy(rpmsg_class);
++		unregister_chrdev_region(rpmsg_major, RPMSG_DEV_MAX);
++	}
++	return ret;
++}
++postcore_initcall(rpmsg_char_init);
++
++static void rpmsg_chrdev_exit(void)
++{
++	unregister_rpmsg_driver(&rpmsg_sample_client);
++	class_destroy(rpmsg_class);
++	unregister_chrdev_region(rpmsg_major, RPMSG_DEV_MAX);
++}
++module_exit(rpmsg_chrdev_exit);
++
++MODULE_DESCRIPTION("Remote processor messaging sample client driver");
++MODULE_LICENSE("GPL v2");
+-- 
+2.26.2
+
