@@ -4,14 +4,20 @@ LIC_FILES_CHKSUM = "file://${COREBASE}/meta/COPYING.MIT;md5=3da9cfbcb788c80a0384
 
 SRC_URI_ebisu = " \
 	file://ebisu/zephyr_button.bin \
+	file://ebisu/zephyr_button.elf \
 	file://ebisu/zephyr_blinky.bin \
+	file://ebisu/zephyr_blinky.elf \
 	file://ebisu/zephyr_openamp_rsc_table.bin \
+	file://ebisu/zephyr_openamp_rsc_table.elf \
 "
 
 SRC_URI_ulcb = " \
 	file://ulcb/zephyr_button.bin \
+	file://ulcb/zephyr_button.elf \
 	file://ulcb/zephyr_blinky.bin \
+	file://ulcb/zephyr_blinky.elf \
 	file://ulcb/zephyr_openamp_rsc_table.bin \
+	file://ulcb/zephyr_openamp_rsc_table.elf \
 "
 
 TARG_ebisu = "ebisu"
@@ -24,13 +30,21 @@ do_compile[noexec] = "1"
 
 do_install () {
 	install -d ${D}/boot
+	install -d ${D}/lib/firmware
 	install -m 0644 ${WORKDIR}/${TARG}/zephyr_*.bin ${D}/boot
+	install -m 0644 ${WORKDIR}/${TARG}/zephyr_*.elf ${D}/lib/firmware
 }
 
 do_deploy() {
     install -d ${DEPLOYDIR}
     install -m 0644 ${WORKDIR}/${TARG}/zephyr_*.bin ${DEPLOYDIR}/
+    install -m 0644 ${WORKDIR}/${TARG}/zephyr_*.elf ${DEPLOYDIR}/
 }
 addtask deploy before do_build after do_compile
 
 FILES_${PN} = "/boot"
+
+# Firmware files are designed to be run on the Cortex-r7
+# not on the AARCH64 processor.
+INSANE_SKIP = "arch"
+FILES_${PN} += "${nonarch_base_libdir}/firmware/*"
