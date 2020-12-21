@@ -9,6 +9,8 @@ SRC_URI_ebisu = " \
 	file://ebisu/zephyr_blinky.elf \
 	file://ebisu/zephyr_openamp_rsc_table.bin \
 	file://ebisu/zephyr_openamp_rsc_table.elf \
+	file://ebisu/zephyr_openamp_char.bin \
+	file://ebisu/zephyr_openamp_char.elf \
 "
 
 SRC_URI_ulcb = " \
@@ -18,6 +20,8 @@ SRC_URI_ulcb = " \
 	file://ulcb/zephyr_blinky.elf \
 	file://ulcb/zephyr_openamp_rsc_table.bin \
 	file://ulcb/zephyr_openamp_rsc_table.elf \
+	file://ulcb/zephyr_openamp_char.bin \
+	file://ulcb/zephyr_openamp_char.elf \
 "
 
 TARG_ebisu = "ebisu"
