@@ -1,0 +1,31 @@
+From 4cb73ddf287222310cee09b5d4ba5b2c5475b515 Mon Sep 17 00:00:00 2001
+From: Julien Massot <julien.massot@iot.bzh>
+Date: Tue, 15 Dec 2020 11:43:03 +0100
+Subject: [PATCH 10/11] remoteproc: rcar: disable auto_boot
+
+Since remoteproc try to fetch a firmware before filesytem is there,
+the request hang for few second a delay the possibility to request a
+start manually.
+
+Let the user the choice to start the remote processor.
+---
+ drivers/remoteproc/rcar_rproc.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/remoteproc/rcar_rproc.c b/drivers/remoteproc/rcar_rproc.c
+index 54634f4f1481..4d745278049e 100644
+--- a/drivers/remoteproc/rcar_rproc.c
++++ b/drivers/remoteproc/rcar_rproc.c
+@@ -403,6 +403,9 @@ static int rcar_rproc_probe(struct platform_device *pdev)
+ 		ret = rcar_rproc_parse_memory_regions(rproc);
+ 		if (ret)
+ 			goto free_rproc;
++	} else {
++		/* Manually start the rproc */
++		rproc->auto_boot = false;
+ 	}
+ 
+ 	priv->workqueue = create_workqueue(dev_name(dev));
+-- 
+2.31.1
+

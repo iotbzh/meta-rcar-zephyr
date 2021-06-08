@@ -1,0 +1,27 @@
+From d232f77c33d7870af25ced9e4a251c4a3eab0ce5 Mon Sep 17 00:00:00 2001
+From: Ronan Le Martret <ronan.lemartret@iot.bzh>
+Date: Thu, 26 Nov 2020 15:09:06 +0000
+Subject: [PATCH 07/11] clk: add clock for MFIS registers
+
+Fix for M3ulcb
+
+Signed-off-by: Ronan Le Martret <ronan.lemartret@iot.bzh>
+---
+ drivers/clk/renesas/r8a7796-cpg-mssr.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/clk/renesas/r8a7796-cpg-mssr.c b/drivers/clk/renesas/r8a7796-cpg-mssr.c
+index 08c18bbd54c1..56bed7aa6fed 100644
+--- a/drivers/clk/renesas/r8a7796-cpg-mssr.c
++++ b/drivers/clk/renesas/r8a7796-cpg-mssr.c
+@@ -141,6 +141,7 @@ static struct mssr_mod_clk r8a7796_mod_clks[] __initdata = {
+ 	DEF_MOD("msiof2",		 209,	R8A7796_CLK_MSO),
+ 	DEF_MOD("msiof1",		 210,	R8A7796_CLK_MSO),
+ 	DEF_MOD("msiof0",		 211,	R8A7796_CLK_MSO),
++	DEF_MOD("mfis",		         213,	R8A7796_CLK_MSO),
+ 	DEF_MOD("sys-dmac2",		 217,	R8A7796_CLK_S3D1),
+ 	DEF_MOD("sys-dmac1",		 218,	R8A7796_CLK_S3D1),
+ 	DEF_MOD("sys-dmac0",		 219,	R8A7796_CLK_S0D3),
+-- 
+2.31.1
+
