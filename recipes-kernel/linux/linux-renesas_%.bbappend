@@ -17,6 +17,8 @@ SRC_URI_append = " \
     file://0009-remoteproc-rcar_rproc-add-support-for-starting-the-r.patch \
     file://0010-remoteproc-rcar-disable-auto_boot.patch \
     file://0011-Add-device-driver-for-rcar-r7-rpmsg.patch \
+    file://0001-remoteproc-add-TEE-support.patch \
+    file://0002-drivers-remoteproc-rcar-Add-support-for-optee-rproc.patch \
     "
 
 SRC_URI_append = " \
