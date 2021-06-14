@@ -1,0 +1,71 @@
+From 7e47952961eefa119cfdeef2b1b716cb993d1646 Mon Sep 17 00:00:00 2001
+From: Julien Massot <julien.massot@iot.bzh>
+Date: Tue, 1 Jun 2021 09:38:46 +0200
+Subject: [PATCH] scripts/sign_rproc_fw.py: use ENUM_P_TYPE_ARM on ARM machine
+
+ENUM_P_TYPE_ARM is not aware of PT_ARM_EXIDX, and
+sign_rproc_fw fail to generate signature for these firmwares:
+
+Traceback (most recent call last):
+  File "/home/julien/src/stm32/optee_os/scripts/sign_rproc_fw.py", line 416, in <module>
+    main()
+  File "/home/julien/src/stm32/optee_os/scripts/sign_rproc_fw.py", line 344, in main
+    hash = hash_table.get_table()
+  File "/home/julien/src/stm32/optee_os/scripts/sign_rproc_fw.py", line 127, in get_table
+    ENUM_P_TYPE_BASE[seg.header.p_type])
+KeyError: 'PT_ARM_EXIDX'
+
+instead read the machine type and load the correct enum for
+ARM machine.
+
+Tested with a Zephyr blinky demo on a cortex-r7 platform.
+
+Step to reproduce on stm32mp157
+prepare a zephyr worktree:
+https://docs.zephyrproject.org/2.6.0/getting_started/index.html
+
+build blinky demo for stm32mp157:
+west build -b stm32mp157c_dk2 zephyr/samples/basic/blinky --build-dir blinky-stm32mp1
+./scripts/sign_rproc_fw.py sign --in ~/src/zephyr-rebase/blinky-stm32mp1/zephyr/zephyr.elf --out zephyr.elf.signed
+
+Signed-off-by: Julien Massot <julien.massot@iot.bzh>
+---
+ scripts/sign_rproc_fw.py | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/scripts/sign_rproc_fw.py b/scripts/sign_rproc_fw.py
+index 4248ed28..801b16b2 100755
+--- a/scripts/sign_rproc_fw.py
++++ b/scripts/sign_rproc_fw.py
+@@ -8,6 +8,7 @@ try:
+     from elftools.elf.elffile import ELFFile
+     from elftools.elf.sections import SymbolTableSection
+     from elftools.elf.enums import ENUM_P_TYPE_BASE
++    from elftools.elf.enums import ENUM_P_TYPE_ARM
+     from elftools.elf.enums import *
+ except ImportError:
+     print("""
+@@ -118,13 +119,18 @@ class SegmentHash(object):
+             h = SHA256.new()
+             segment = self.img.get_segment(i)
+             seg.header = self.img.get_segment(i).header
++            machine = self.img.get_machine_arch()
+             logging.debug("compute hash for segment offset %s" % seg.header)
+             h.update(segment.data())
+             seg.hash = h.digest()
+             logging.debug("hash computed: %s" % seg.hash)
+             del h
+-            struct.pack_into('<I', self._bufview_, self._offset,
+-                             ENUM_P_TYPE_BASE[seg.header.p_type])
++            if machine == "ARM":
++                struct.pack_into('<I', self._bufview_, self._offset,
++                                 ENUM_P_TYPE_ARM[seg.header.p_type])
++            else:
++                struct.pack_into('<I', self._bufview_, self._offset,
++                                 ENUM_P_TYPE_BASE[seg.header.p_type])
+             self._offset += 4
+             struct.pack_into('<7I', self._bufview_, self._offset,
+                              seg.header.p_offset, seg.header.p_vaddr,
+-- 
+2.31.1
+
