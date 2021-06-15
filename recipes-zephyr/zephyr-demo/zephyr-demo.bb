@@ -2,6 +2,13 @@ DESCRIPTION = "Zephyr demos"
 LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://${COREBASE}/meta/COPYING.MIT;md5=3da9cfbcb788c80a0384361b4de20420"
 
+inherit python3native
+
+DEPENDS = "sign-rproc-fw-native python3-pyelftools-native python3-pycryptodomex-native"
+
+# We expect that optee-os recipes install the secret key to the DEPLOY_DIR_IMAGE"
+DEPENDS += " optee-os"
+
 SRC_URI_ebisu = " \
 	file://ebisu/zephyr_button.bin \
 	file://ebisu/zephyr_button.elf \
@@ -30,13 +37,20 @@ TARG_ulcb = "ulcb"
 inherit deploy
 COMPATIBLE_MACHINE = "(salvator-x|ulcb|ebisu)"
 PROVIDES = "zephyr-demo"
-do_compile[noexec] = "1"
+
+do_compile() {
+ for fw in ${WORKDIR}/${TARG}/zephyr_*.elf; do
+   bbnote "signing ${fw}"
+   sign_rproc_fw.py sign --in ${fw} --out ${B}/$(basename ${fw}).signed --key ${DEPLOY_DIR_IMAGE}/not-a-secret-key
+ done
+}
 
 do_install () {
 	install -d ${D}/boot
 	install -d ${D}/lib/firmware
 	install -m 0644 ${WORKDIR}/${TARG}/zephyr_*.bin ${D}/boot
 	install -m 0644 ${WORKDIR}/${TARG}/zephyr_*.elf ${D}/lib/firmware
+	install -m 0644 ${B}/*.signed ${D}/lib/firmware
 }
 
 do_deploy() {
