@@ -6,9 +6,6 @@ inherit python3native
 
 DEPENDS = "sign-rproc-fw-native python3-pyelftools-native python3-pycryptodomex-native"
 
-# We expect that optee-os recipes install the secret key to the DEPLOY_DIR_IMAGE"
-DEPENDS += " optee-os"
-
 SRC_URI_ebisu = " \
 	file://ebisu/zephyr_button.bin \
 	file://ebisu/zephyr_button.elf \
@@ -39,9 +36,10 @@ COMPATIBLE_MACHINE = "(salvator-x|ulcb|ebisu)"
 PROVIDES = "zephyr-demo"
 
 do_compile() {
+ bbnote "Using key: ${REMOTE_PROC_KEY}"
  for fw in ${WORKDIR}/${TARG}/zephyr_*.elf; do
    bbnote "signing ${fw}"
-   sign_rproc_fw.py sign --in ${fw} --out ${B}/$(basename ${fw}).signed --key ${DEPLOY_DIR_IMAGE}/not-a-secret-key
+   sign_rproc_fw.py sign --in ${fw} --out ${B}/$(basename ${fw}).signed --key ${REMOTE_PROC_KEY}
  done
 }
 
