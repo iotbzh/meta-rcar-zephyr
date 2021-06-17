@@ -21,12 +21,6 @@ SRC_URI = " \
     file://0006-allow-setting-sysroot-for-libgcc-lookup.patch \
 "
 
-SRC_URI_append = " \
-    file://not-a-secret-key.pub \
-    file://not-a-secret-key \
-"
-
-
 COMPATIBLE_MACHINE = "(salvator-x|ulcb|ebisu|draak)"
 PLATFORM = "rcar"
 
@@ -48,7 +42,7 @@ EXTRA_OEMAKE = "LIBGCC_LOCATE_CFLAGS=--sysroot=${STAGING_DIR_HOST} -e MAKEFLAGS=
 do_install[noexec] = "1"
 
 do_compile() {
-     oe_runmake PLATFORM=${PLATFORM} CFG_ARM64_core=y CFG_RPROC_PTA=y CFG_RPROC_SIGN_KEY=${WORKDIR}/not-a-secret-key.pub CFG_IN_TREE_EARLY_TAS=remoteproc/80a4c275-0a47-4905-8285-1486a9771a08
+     oe_runmake PLATFORM=${PLATFORM} CFG_ARM64_core=y CFG_RPROC_PTA=y CFG_RPROC_SIGN_KEY=${REMOTE_PROC_PUB_KEY} CFG_IN_TREE_EARLY_TAS=remoteproc/80a4c275-0a47-4905-8285-1486a9771a08
      
 }
 
