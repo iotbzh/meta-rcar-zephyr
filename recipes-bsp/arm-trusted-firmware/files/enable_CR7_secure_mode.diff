@@ -7,7 +7,7 @@ index 6d882a335..b48dcf8e1 100644
  	/* Security attribute setting for master ports                  */
  	/* Bit 0: ARM realtime core (Cortex-R7) master port             */
 -	/*       0: Non-Secure                                          */
-+	/*       1: Non-Secure                                          */
++	/*       1: Secure                                              */
  	{
 -	SEC_SRC, 0x0000001EU},
 +	SEC_SRC, 0x0000001FU},
