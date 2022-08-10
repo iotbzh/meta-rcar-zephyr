@@ -1,0 +1,102 @@
+From 7c3cfa9142e570e5dac40721b018a548be340b91 Mon Sep 17 00:00:00 2001
+From: Ronan Le Martret <ronan.lemartret@iot.bzh>
+Date: Tue, 9 Aug 2022 17:56:08 +0200
+Subject: [PATCH] [falcon] Add definition for Cortex-R7 remoteproc
+
+Add Mailbox and remoteproc, also add the shm area for rpmsg.
+---
+ .../boot/dts/renesas/r8a779a0-falcon.dts      | 28 +++++++++++++++++++
+ arch/arm64/boot/dts/renesas/r8a779a0.dtsi     | 27 ++++++++++++++++++
+ 2 files changed, 55 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/renesas/r8a779a0-falcon.dts b/arch/arm64/boot/dts/renesas/r8a779a0-falcon.dts
+index 10a66abeb7e2..f3d873d14b61 100644
+--- a/arch/arm64/boot/dts/renesas/r8a779a0-falcon.dts
++++ b/arch/arm64/boot/dts/renesas/r8a779a0-falcon.dts
+@@ -47,6 +47,26 @@ reserved-memory {
+ 		#size-cells = <2>;
+ 		ranges;
+ 
++		cr7_ram: cr7_ram@0x40040000 {
++			no-map;
++			reg = <0x0 0x40040000 0x0 0x1fc0000>;
++		};
++
++		vdev0vring0: vdev0vring0@42000000 {
++			no-map;
++			reg = <0x0 0x42000000 0x0 0x1000>;
++		};
++
++		vdev0vring1: vdev0vring1@42010000 {
++			no-map;
++			reg = <0x0 0x42010000 0x0 0x1000>;
++		};
++
++		vdev0buffer: vdev0buffer@42020000 {
++			no-map;
++			reg = <0x0 0x42020000 0x0 0x4000>;
++		};
++
+ 		/* global autoconfigured region for contiguous allocations */
+ 		linux,cma@58000000 {
+ 			compatible = "shared-dma-pool";
+@@ -957,3 +977,11 @@ channel7 {
+ 		status = "okay";
+ 	};
+ };
++
++&cr7_rproc {
++	memory-region = <&cr7_ram>, <&vdev0vring0>, <&vdev0vring1>, <&vdev0buffer>;
++	mboxes = <&mfis 0>, <&mfis 1>;
++	mbox-names = "tx", "rx";
++	rcar,syscfg-rsc-tbl = <&mfisarembr 0x0 0xFFFFFFFF>;
++	status = "okay";
++};
+diff --git a/arch/arm64/boot/dts/renesas/r8a779a0.dtsi b/arch/arm64/boot/dts/renesas/r8a779a0.dtsi
+index 53b77d1c5939..5888309c8117 100644
+--- a/arch/arm64/boot/dts/renesas/r8a779a0.dtsi
++++ b/arch/arm64/boot/dts/renesas/r8a779a0.dtsi
+@@ -220,6 +220,13 @@ soc: soc {
+ 		#size-cells = <2>;
+ 		ranges;
+ 
++		cr7_rproc: cr7@40040000 {
++			compatible = "renesas,rcar-cr7";
++			power-domains = <&sysc R8A779A0_PD_CR7>;
++			resets = <&cpg 222>;
++			status = "disabled";
++		};
++
+ 		rwdt: watchdog@e6020000 {
+ 			compatible = "renesas,r8a779a0-wdt",
+ 				     "renesas,rcar-gen3-wdt";
+@@ -609,6 +616,26 @@ tsc: thermal@e6190000 {
+ 			#thermal-sensor-cells = <1>;
+ 		};
+ 
++		mfis: mailbox@e6260400 {
++			compatible = "renesas,rcar-ipcc";
++			#mbox-cells = <1>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++			reg = <0 0xe6260400 0 0x10>;
++			interrupts =
++				<GIC_SPI 224 IRQ_TYPE_LEVEL_HIGH>,
++				<GIC_SPI 225 IRQ_TYPE_LEVEL_HIGH>;
++			interrupt-names = "tx", "rx";
++			clocks = <&cpg  CPG_MOD 213>;
++			power-domains = <&sysc R8A779A0_PD_ALWAYS_ON>;
++			resets = <&cpg 213>;
++		};
++
++		mfisarembr: mfisarembr@e6260460{
++			compatible = "simple-bus", "syscon", "simple-mfd";
++			reg = <0 0xe6260460 0 0x20>;
++		};
++
+ 		i2c0: i2c@e6500000 {
+ 			compatible = "renesas,i2c-r8a779a0",
+ 				     "renesas,rcar-gen3-i2c", "generic-uio";
+-- 
+2.37.1
+

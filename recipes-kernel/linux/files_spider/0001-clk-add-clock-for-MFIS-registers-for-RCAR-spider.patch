@@ -1,0 +1,24 @@
+From 456b0c2788f1704357f58da8d2795a9ca6037221 Mon Sep 17 00:00:00 2001
+From: Ronan Le Martret <ronan.lemartret@iot.bzh>
+Date: Tue, 9 Aug 2022 11:24:43 +0200
+Subject: [PATCH] clk: add clock for MFIS registers for RCAR spider
+
+---
+ drivers/clk/renesas/r8a779f0-cpg-mssr.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/clk/renesas/r8a779f0-cpg-mssr.c b/drivers/clk/renesas/r8a779f0-cpg-mssr.c
+index 03c1ccf681ab..86571ee1b369 100644
+--- a/drivers/clk/renesas/r8a779f0-cpg-mssr.c
++++ b/drivers/clk/renesas/r8a779f0-cpg-mssr.c
+@@ -127,6 +127,7 @@ static const struct mssr_mod_clk r8a779f0_mod_clks[] __initconst = {
+ 	DEF_MOD("i2c3",		521,	R8A779F0_CLK_S0D6_PER),
+ 	DEF_MOD("i2c4",		522,	R8A779F0_CLK_S0D6_PER),
+ 	DEF_MOD("i2c5",		523,	R8A779F0_CLK_S0D6_PER),
++	DEF_MOD("mfis",		617,	R8A779F0_CLK_S0D6_PER),
+ 	DEF_MOD("msi0",		618,	R8A779F0_CLK_MSO),
+ 	DEF_MOD("msi1",		619,	R8A779F0_CLK_MSO),
+ 	DEF_MOD("msi2",		620,	R8A779F0_CLK_MSO),
+-- 
+2.37.1
+

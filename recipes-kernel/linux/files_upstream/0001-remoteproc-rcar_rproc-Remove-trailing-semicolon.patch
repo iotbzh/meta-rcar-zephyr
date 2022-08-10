@@ -1,0 +1,31 @@
+From ba635863779871a4f873511199f3e0ae84d5e592 Mon Sep 17 00:00:00 2001
+From: Julien Massot <julien.massot@iot.bzh>
+Date: Thu, 16 Dec 2021 17:07:21 +0100
+Subject: [PATCH] remoteproc: rcar_rproc: Remove trailing semicolon
+
+Remove trailing semicolon.
+
+Signed-off-by: Julien Massot <julien.massot@iot.bzh>
+Link: https://lore.kernel.org/r/20211216160721.203794-1-julien.massot@iot.bzh
+Reviewed-by: Geert Uytterhoeven <geert+renesas@glider.be>
+Signed-off-by: Mathieu Poirier <mathieu.poirier@linaro.org>
+---
+ drivers/remoteproc/rcar_rproc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/remoteproc/rcar_rproc.c b/drivers/remoteproc/rcar_rproc.c
+index 3408c6e51a7c..aa86154109c7 100644
+--- a/drivers/remoteproc/rcar_rproc.c
++++ b/drivers/remoteproc/rcar_rproc.c
+@@ -163,7 +163,7 @@ static int rcar_rproc_probe(struct platform_device *pdev)
+ 	if (IS_ERR(priv->rst)) {
+ 		ret = PTR_ERR(priv->rst);
+ 		dev_err_probe(dev, ret, "fail to acquire rproc reset\n");
+-		return ret;;
++		return ret;
+ 	}
+ 
+ 	pm_runtime_enable(dev);
+-- 
+2.37.1
+

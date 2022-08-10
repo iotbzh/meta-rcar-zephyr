@@ -1,0 +1,38 @@
+From b0229605b1436438f24d9a97d8ecf220e0ea5900 Mon Sep 17 00:00:00 2001
+From: Julien Massot <julien.massot@iot.bzh>
+Date: Thu, 16 Dec 2021 17:06:53 +0100
+Subject: [PATCH] remoteproc: rcar_rproc: Fix pm_runtime_get_sync error check
+
+pm_runtime_get_sync can also return 1 on success, change
+to use pm_runtime_resume_and_get which return 0 only on
+success.
+
+This bug has been discovered by Dan Carpenter by using Smatch
+static checker.
+
+Fixes: 285892a74f13 ("remoteproc: Add Renesas rcar driver")
+Signed-off-by: Julien Massot <julien.massot@iot.bzh>
+Reviewed-by: Geert Uytterhoeven <geert+renesas@glider.be>
+[Fixed blank line between tags]
+Link: https://lore.kernel.org/r/20211216160653.203768-1-julien.massot@iot.bzh
+Signed-off-by: Mathieu Poirier <mathieu.poirier@linaro.org>
+---
+ drivers/remoteproc/rcar_rproc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/remoteproc/rcar_rproc.c b/drivers/remoteproc/rcar_rproc.c
+index 34fd867f9f8c..3408c6e51a7c 100644
+--- a/drivers/remoteproc/rcar_rproc.c
++++ b/drivers/remoteproc/rcar_rproc.c
+@@ -167,7 +167,7 @@ static int rcar_rproc_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	pm_runtime_enable(dev);
+-	ret = pm_runtime_get_sync(dev);
++	ret = pm_runtime_resume_and_get(dev);
+ 	if (ret) {
+ 		dev_err(dev, "failed to power up\n");
+ 		return ret;
+-- 
+2.37.1
+

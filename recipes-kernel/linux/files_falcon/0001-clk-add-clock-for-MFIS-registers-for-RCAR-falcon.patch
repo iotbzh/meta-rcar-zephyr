@@ -1,0 +1,24 @@
+From 08b4cd4da75649cb5f60e31debdcdc4ee1995506 Mon Sep 17 00:00:00 2001
+From: Ronan Le Martret <ronan.lemartret@iot.bzh>
+Date: Tue, 9 Aug 2022 18:07:02 +0200
+Subject: [PATCH] clk: add clock for MFIS registers for RCAR falcon
+
+---
+ drivers/clk/renesas/r8a774e1-cpg-mssr.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/clk/renesas/r8a774e1-cpg-mssr.c b/drivers/clk/renesas/r8a774e1-cpg-mssr.c
+index b96c486abb44..9beaebc325af 100644
+--- a/drivers/clk/renesas/r8a774e1-cpg-mssr.c
++++ b/drivers/clk/renesas/r8a774e1-cpg-mssr.c
+@@ -218,6 +218,7 @@ static const struct mssr_mod_clk r8a774e1_mod_clks[] __initconst = {
+ 	DEF_MOD("rpc-if",		 917,	R8A774E1_CLK_RPCD2),
+ 	DEF_MOD("i2c6",			 918,	R8A774E1_CLK_S0D6),
+ 	DEF_MOD("i2c5",			 919,	R8A774E1_CLK_S0D6),
++	DEF_MOD("mfis",			 920,	R8A774E1_CLK_S0D6),
+ 	DEF_MOD("adg",			 922,	R8A774E1_CLK_S0D1),
+ 	DEF_MOD("i2c-dvfs",		 926,	R8A774E1_CLK_CP),
+ 	DEF_MOD("i2c4",			 927,	R8A774E1_CLK_S0D6),
+-- 
+2.37.1
+

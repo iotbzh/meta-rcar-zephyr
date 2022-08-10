@@ -1,0 +1,42 @@
+From 5b804a5bb5a48d5996005d8bddeff625bea1daa2 Mon Sep 17 00:00:00 2001
+From: Ronan Le Martret <ronan.lemartret@iot.bzh>
+Date: Wed, 10 Aug 2022 12:17:08 +0200
+Subject: [PATCH] Add FAKE DEFINE need to be check
+
+Signed-off-by: Ronan Le Martret <ronan.lemartret@iot.bzh>
+---
+ include/dt-bindings/power/r8a779a0-sysc.h | 3 +++
+ include/dt-bindings/power/r8a779f0-sysc.h | 3 +++
+ 2 files changed, 6 insertions(+)
+
+diff --git a/include/dt-bindings/power/r8a779a0-sysc.h b/include/dt-bindings/power/r8a779a0-sysc.h
+index 57929e459a67..e8244f6d7669 100644
+--- a/include/dt-bindings/power/r8a779a0-sysc.h
++++ b/include/dt-bindings/power/r8a779a0-sysc.h
+@@ -17,6 +17,9 @@
+ #define R8A779A0_PD_A1E1D0C1		5
+ #define R8A779A0_PD_A1E1D1C0		6
+ #define R8A779A0_PD_A1E1D1C1		7
++//FAKE
++#define R8A779A0_PD_CR7			13
++//END FAKE
+ #define R8A779A0_PD_A2E0D0		16
+ #define R8A779A0_PD_A2E0D1		17
+ #define R8A779A0_PD_A2E1D0		18
+diff --git a/include/dt-bindings/power/r8a779f0-sysc.h b/include/dt-bindings/power/r8a779f0-sysc.h
+index 1f135ac4c405..288b91862577 100644
+--- a/include/dt-bindings/power/r8a779f0-sysc.h
++++ b/include/dt-bindings/power/r8a779f0-sysc.h
+@@ -17,6 +17,9 @@
+ #define R8A779F0_PD_A1E1D0C1		5
+ #define R8A779F0_PD_A1E1D1C0		6
+ #define R8A779F0_PD_A1E1D1C1		7
++//FAKE
++#define R8A779F0_PD_CR7			13
++//END FAKE
+ #define R8A779F0_PD_A2E0D0		16
+ #define R8A779F0_PD_A2E0D1		17
+ #define R8A779F0_PD_A2E1D0		18
+-- 
+2.37.1
+
