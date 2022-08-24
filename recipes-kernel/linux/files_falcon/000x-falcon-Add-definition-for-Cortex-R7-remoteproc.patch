@@ -59,10 +59,10 @@ index 53b77d1c5939..5888309c8117 100644
 @@ -220,6 +220,13 @@ soc: soc {
  		#size-cells = <2>;
  		ranges;
- 
+
 +		cr7_rproc: cr7@40040000 {
 +			compatible = "renesas,rcar-cr7";
-+			power-domains = <&sysc R8A779A0_PD_CR7>;
++			power-domains = <&sysc R8A779A0_PD_ALWAYS_ON>;
 +			resets = <&cpg 222>;
 +			status = "disabled";
 +		};
@@ -73,7 +73,8 @@ index 53b77d1c5939..5888309c8117 100644
 @@ -609,6 +616,26 @@ tsc: thermal@e6190000 {
  			#thermal-sensor-cells = <1>;
  		};
- 
+
++  		#OK 
 +		mfis: mailbox@e6260400 {
 +			compatible = "renesas,rcar-ipcc";
 +			#mbox-cells = <1>;
@@ -81,14 +82,15 @@ index 53b77d1c5939..5888309c8117 100644
 +			#size-cells = <0>;
 +			reg = <0 0xe6260400 0 0x10>;
 +			interrupts =
-+				<GIC_SPI 224 IRQ_TYPE_LEVEL_HIGH>,
-+				<GIC_SPI 225 IRQ_TYPE_LEVEL_HIGH>;
++				<GIC_SPI 440 IRQ_TYPE_LEVEL_HIGH>,
++				<GIC_SPI 441 IRQ_TYPE_LEVEL_HIGH>;
 +			interrupt-names = "tx", "rx";
-+			clocks = <&cpg  CPG_MOD 213>;
++			clocks = <&cpg  CPG_MOD 617>;
 +			power-domains = <&sysc R8A779A0_PD_ALWAYS_ON>;
-+			resets = <&cpg 213>;
++			resets = <&cpg 617>;
 +		};
 +
++               #OK
 +		mfisarembr: mfisarembr@e6260460{
 +			compatible = "simple-bus", "syscon", "simple-mfd";
 +			reg = <0 0xe6260460 0 0x20>;

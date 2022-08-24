@@ -13,18 +13,20 @@ SRC_URI_append = " \
     file://0001-remoteproc-rcar_rproc-Remove-trailing-semicolon.patch \
     "
 
-#spider
+#Spider board
 #This patch need to be check twice!!!
 SRC_URI_append = " \
     file://0001-clk-add-clock-for-MFIS-registers-for-RCAR-spider.patch \
 "
 
-#falcon
+#Falcon board
 #This patch need to be check twice!!!
-#The patch 0001-clk-add-clock-for-MFIS-registers-for-RCAR-falcon.patch was done with randon value
+#MFIS mod clock already defined
+#file://000x-falcon-Add-definition-for-Cortex-R7-remoteproc.patch
+#file://000x-clk-add-clock-for-MFIS-registers-for-RCAR-falcon.patch
 SRC_URI_append = " \
-    file://0001-falcon-Add-definition-for-Cortex-R7-remoteproc.patch \
-    file://0001-clk-add-clock-for-MFIS-registers-for-RCAR-falcon.patch \
+    file://0001-dts-r8a779a0-comment-6a1489d5ce0b-that-block-boot.patch \
+    file://0002-falcon-dt-Falcon-OpenAMP-ready-device-tree.patch \
 "
 
 #Mailbox
@@ -39,9 +41,7 @@ SRC_URI_append = " \
     "
 
 #Fake patch need to be rewrite
-SRC_URI_append = " \
-    file://0001-Add-FAKE-DEFINE-need-to-be-check.patch \
-    "
+#file://000x-Add-FAKE-DEFINE-need-to-be-check.patch
 
 SRC_URI_append = " \
     file://cr7-rproc.cfg \

@@ -1,0 +1,192 @@
+From a3c9bb984122e8727ab8812d827609c61977099b Mon Sep 17 00:00:00 2001
+From: Aymeric Aillet <aymeric.aillet@iot.bzh>
+Date: Tue, 23 Aug 2022 14:02:47 +0200
+Subject: [PATCH] falcon: dt: Falcon OpenAMP ready device tree
+
+Based on work for Gen3 boards.
+reserved memory areas have been adapted in order to boot.
+
+- cpu reset is not  documented
+- mfis & mfisarembr are validated
+
+Need to validate rproc node:
+- we copied dt node from old poc patches
+- we are using upstream driver that is a bit different
+
+Signed-off-by: Aymeric Aillet <aymeric.aillet@iot.bzh>
+---
+ .../boot/dts/renesas/r8a779a0-falcon.dts      |  28 +++++
+ arch/arm64/boot/dts/renesas/r8a779a0.dtsi     | 100 +++++-------------
+ 2 files changed, 55 insertions(+), 73 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/renesas/r8a779a0-falcon.dts b/arch/arm64/boot/dts/renesas/r8a779a0-falcon.dts
+index 10a66abeb7e2..82c3f64abc2e 100644
+--- a/arch/arm64/boot/dts/renesas/r8a779a0-falcon.dts
++++ b/arch/arm64/boot/dts/renesas/r8a779a0-falcon.dts
+@@ -47,6 +47,26 @@ reserved-memory {
+ 		#size-cells = <2>;
+ 		ranges;
+ 
++		cr52_ram: cr52_ram@40040000 {
++			no-map;
++			reg = <0x0 0x40040000 0x0 0x1fc0000>;
++		};
++
++		vdev0vring0: vdev0vring0@42000000 {
++			no-map;
++			reg = <0x0 0x42000000 0x0 0x1000>;
++		};
++
++		vdev0vring1: vdev0vring1@42001000 {
++			no-map;
++			reg = <0x0 0x42001000 0x0 0x1000>;
++		};
++
++		vdev0buffer: vdev0buffer@42002000 {
++			no-map;
++			reg = <0x0 0x42002000 0x0 0x4000>;
++		};
++
+ 		/* global autoconfigured region for contiguous allocations */
+ 		linux,cma@58000000 {
+ 			compatible = "shared-dma-pool";
+@@ -957,3 +977,11 @@ channel7 {
+ 		status = "okay";
+ 	};
+ };
++
++&cr52_rproc {
++	memory-region = <&cr52_ram>, <&vdev0vring0>, <&vdev0vring1>, <&vdev0buffer>;
++	mboxes = <&mfis 0>, <&mfis 1>;
++	mbox-names = "tx", "rx";
++	rcar,syscfg-rsc-tbl = <&mfisarembr 0x0 0xFFFFFFFF>;
++	status = "okay";
++};
+diff --git a/arch/arm64/boot/dts/renesas/r8a779a0.dtsi b/arch/arm64/boot/dts/renesas/r8a779a0.dtsi
+index 53b77d1c5939..fc68d2a76e45 100644
+--- a/arch/arm64/boot/dts/renesas/r8a779a0.dtsi
++++ b/arch/arm64/boot/dts/renesas/r8a779a0.dtsi
+@@ -220,6 +220,13 @@ soc: soc {
+ 		#size-cells = <2>;
+ 		ranges;
+ 
++		cr52_rproc: cr52@40040000 {
++			compatible = "renesas,rcar-cr7";
++			power-domains = <&sysc R8A779A0_PD_ALWAYS_ON>;
++			resets = <&cpg 222>; //Not available
++			status = "disabled";
++		};
++
+ 		rwdt: watchdog@e6020000 {
+ 			compatible = "renesas,r8a779a0-wdt",
+ 				     "renesas,rcar-gen3-wdt";
+@@ -230,6 +237,26 @@ rwdt: watchdog@e6020000 {
+ 			status = "disabled";
+ 		};
+ 
++		mfis: mailbox@e6260400 {
++			compatible = "renesas,rcar-ipcc";
++			#mbox-cells = <1>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++			reg = <0 0xe6260400 0 0x10>;
++			interrupts =
++				<GIC_SPI 440 IRQ_TYPE_LEVEL_HIGH 0>,
++				<GIC_SPI 441 IRQ_TYPE_LEVEL_HIGH 0>;
++			interrupt-names = "tx", "rx";
++			clocks = <&cpg  CPG_MOD 617>;
++			power-domains = <&sysc R8A779A0_PD_ALWAYS_ON>;
++			resets = <&cpg 617>;
++		};
++
++		mfisarembr: mfisarembr@e6260460{
++			compatible = "simple-bus", "syscon", "simple-mfd";
++			reg = <0 0xe6260460 0 0x20>;
++		};
++
+ 		pwm0: pwm@e6e30000 {
+ 			compatible = "renesas,pwm-r8a779a0", "renesas,pwm-rcar";
+ 			reg = <0 0xe6e30000 0 0x10>;
+@@ -6474,79 +6501,6 @@ fcpra_rtdmac: fcpra@ffc79000 {
+ 			linux,uio-name = "fcpra_rtdmac";
+ 		};
+ 
+-		iccom00: mfis@e6260000 {
+-			compatible = "generic-uio";
+-			reg = <0 0xe6260000 0 0x10000>;
+-			interrupts = <GIC_SPI 440 IRQ_TYPE_LEVEL_HIGH 0>;
+-			clocks = <&cpg CPG_MOD 617>;
+-			power-domains = <&sysc R8A779A0_PD_ALWAYS_ON>;
+-			resets = <&cpg 617>;
+-			linux,uio-name = "iccom_00";
+-		};
+-
+-		iccom01 {
+-			compatible = "generic-uio";
+-			reg = <0 0xe6260000 0 0x10000>;
+-			interrupts = <GIC_SPI 441 IRQ_TYPE_LEVEL_HIGH 0>;
+-			clocks = <&cpg CPG_MOD 617>;
+-			power-domains = <&sysc R8A779A0_PD_ALWAYS_ON>;
+-			linux,uio-name = "irq_iccom_00_01";
+-		};
+-
+-		iccom02 {
+-			compatible = "generic-uio";
+-			reg = <0 0xe6260000 0 0x10000>;
+-			interrupts = <GIC_SPI 442 IRQ_TYPE_LEVEL_HIGH 0>;
+-			clocks = <&cpg CPG_MOD 617>;
+-			power-domains = <&sysc R8A779A0_PD_ALWAYS_ON>;
+-			linux,uio-name = "irq_iccom_00_02";
+-		};
+-
+-		iccom03 {
+-			compatible = "generic-uio";
+-			reg = <0 0xe6260000 0 0x10000>;
+-			interrupts = <GIC_SPI 443 IRQ_TYPE_LEVEL_HIGH 0>;
+-			clocks = <&cpg CPG_MOD 617>;
+-			power-domains = <&sysc R8A779A0_PD_ALWAYS_ON>;
+-			linux,uio-name = "irq_iccom_00_03";
+-		};
+-
+-		iccom04 {
+-			compatible = "generic-uio";
+-			reg = <0 0xe6260000 0 0x10000>;
+-			interrupts = <GIC_SPI 444 IRQ_TYPE_LEVEL_HIGH 0>;
+-			clocks = <&cpg CPG_MOD 617>;
+-			power-domains = <&sysc R8A779A0_PD_ALWAYS_ON>;
+-			linux,uio-name = "irq_iccom_00_04";
+-		};
+-
+-		iccom05 {
+-			compatible = "generic-uio";
+-			reg = <0 0xe6260000 0 0x10000>;
+-			interrupts = <GIC_SPI 445 IRQ_TYPE_LEVEL_HIGH 0>;
+-			clocks = <&cpg CPG_MOD 617>;
+-			power-domains = <&sysc R8A779A0_PD_ALWAYS_ON>;
+-			linux,uio-name = "irq_iccom_00_05";
+-		};
+-
+-		iccom06 {
+-			compatible = "generic-uio";
+-			reg = <0 0xe6260000 0 0x10000>;
+-			interrupts = <GIC_SPI 446 IRQ_TYPE_LEVEL_HIGH 0>;
+-			clocks = <&cpg CPG_MOD 617>;
+-			power-domains = <&sysc R8A779A0_PD_ALWAYS_ON>;
+-			linux,uio-name = "irq_iccom_00_06";
+-		};
+-
+-		iccom07 {
+-			compatible = "generic-uio";
+-			reg = <0 0xe6260000 0 0x10000>;
+-			interrupts = <GIC_SPI 447 IRQ_TYPE_LEVEL_HIGH 0>;
+-			clocks = <&cpg CPG_MOD 617>;
+-			power-domains = <&sysc R8A779A0_PD_ALWAYS_ON>;
+-			linux,uio-name = "irq_iccom_00_07";
+-		};
+-
+ 		qos@e67e0000 {
+ 			compatible = "renesas,qos";
+ 			reg = <0 0xe67e0000 0 0x10090>;
+-- 
+2.25.1
+
