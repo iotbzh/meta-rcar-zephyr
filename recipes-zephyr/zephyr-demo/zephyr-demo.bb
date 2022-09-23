@@ -58,9 +58,9 @@ do_deploy() {
 }
 addtask deploy before do_build after do_compile
 
-FILES_${PN} = "/boot"
+FILES:${PN} = "/boot"
 
 # Firmware files are designed to be run on the Cortex-r7
 # not on the AARCH64 processor.
 INSANE_SKIP = "arch"
-FILES_${PN} += "${nonarch_base_libdir}/firmware/*"
+FILES:${PN} += "${nonarch_base_libdir}/firmware/*"

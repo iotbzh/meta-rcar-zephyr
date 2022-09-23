@@ -11,7 +11,7 @@ SRC_URI = "\
 
 S = "${WORKDIR}"
 
-FILES_${PN} = "\
+FILES:${PN} = "\
 	/usr/bin/echo_test\
 "
 

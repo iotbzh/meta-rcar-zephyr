@@ -36,7 +36,7 @@ revision: HEAD
 To add Zephyr demo to your image please add zephyr package group:
 
 ```local.conf
-IMAGE_INSTALL_append = " packagegroup-rcar-zephyr"
+IMAGE_INSTALL:append = " packagegroup-rcar-zephyr"
 ```
 
 You will need to specify an rsa key to sign the zephyr firmwares:

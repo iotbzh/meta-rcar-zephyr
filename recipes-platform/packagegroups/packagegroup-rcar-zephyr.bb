@@ -3,7 +3,7 @@ inherit packagegroup
 
 PR = "r1"
 
-RDEPENDS_${PN} = "\
+RDEPENDS:${PN} = "\
     kernel-module-rpmsg-client-sample \
     kernel-module-rcar-rproc \
     kernel-module-tee-remoteproc \
