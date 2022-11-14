@@ -3,10 +3,12 @@ inherit packagegroup
 
 PR = "r1"
 
+
+# kernel-module-rcar-rproc
+# kernel-module-tee-remoteproc
+
 RDEPENDS:${PN} = "\
     kernel-module-rpmsg-client-sample \
-    kernel-module-rcar-rproc \
-    kernel-module-tee-remoteproc \
     kernel-module-rcar-ipcc \
     zephyr-demo \
     rpmsg-echo-test \

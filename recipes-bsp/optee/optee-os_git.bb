@@ -55,6 +55,6 @@ do_deploy() {
     install -m 0644 ${S}/out/arm-plat-${PLATFORM}/core/tee-raw.bin ${DEPLOYDIR}/tee-${MACHINE}.bin
     install -m 0644 ${S}/out/arm-plat-${PLATFORM}/core/tee.srec ${DEPLOYDIR}/tee-${MACHINE}.srec
     install -d ${DEPLOYDIR}
-    install -m 0644 ${WORKDIR}/not-a-secret-key ${DEPLOYDIR}/not-a-secret-key
+    install -m 0644 ${REMOTE_PROC_KEY} ${DEPLOYDIR}/not-a-secret-key
 }
 addtask deploy before do_build after do_compile

@@ -6,7 +6,7 @@ inherit python3native
 
 DEPENDS = "sign-rproc-fw-native python3-pyelftools-native python3-pycryptodomex-native"
 
-SRC_URI_ebisu = " \
+SRC_URI:ebisu = " \
 	file://ebisu/zephyr_button.bin \
 	file://ebisu/zephyr_button.elf \
 	file://ebisu/zephyr_blinky.bin \
@@ -17,7 +17,7 @@ SRC_URI_ebisu = " \
 	file://ebisu/zephyr_openamp_char.elf \
 "
 
-SRC_URI_ulcb = " \
+SRC_URI:ulcb = " \
 	file://ulcb/zephyr_button.bin \
 	file://ulcb/zephyr_button.elf \
 	file://ulcb/zephyr_blinky.bin \
@@ -28,8 +28,10 @@ SRC_URI_ulcb = " \
 	file://ulcb/zephyr_openamp_char.elf \
 "
 
-TARG_ebisu = "ebisu"
-TARG_ulcb = "ulcb"
+TARG:ebisu = "ebisu"
+TARG:ulcb = "ulcb"
+#TARG = "TOTO"
+
 
 inherit deploy
 COMPATIBLE_MACHINE = "(salvator-x|ulcb|ebisu)"
@@ -45,10 +47,10 @@ do_compile() {
 
 do_install () {
 	install -d ${D}/boot
-	install -d ${D}/lib/firmware
+	install -d ${D}/${nonarch_base_libdir}/firmware
 	install -m 0644 ${WORKDIR}/${TARG}/zephyr_*.bin ${D}/boot
-	install -m 0644 ${WORKDIR}/${TARG}/zephyr_*.elf ${D}/lib/firmware
-	install -m 0644 ${B}/*.signed ${D}/lib/firmware
+	install -m 0644 ${WORKDIR}/${TARG}/zephyr_*.elf ${D}/${nonarch_base_libdir}/firmware
+	install -m 0644 ${B}/*.signed ${D}/${nonarch_base_libdir}/firmware
 }
 
 do_deploy() {
