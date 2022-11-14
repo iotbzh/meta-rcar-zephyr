@@ -17,7 +17,7 @@ BRANCH = "iotbzh/rcar-rproc"
 SRCREV = "bde99c0089f697cb259ac55eefbeec7a93f5e25d"
 
 SRC_URI = " \
-    git://github.com/iotbzh/optee_os.git;branch=${BRANCH} \
+    git://github.com/iotbzh/optee_os;branch=${BRANCH};;protocol=https \
     file://0006-allow-setting-sysroot-for-libgcc-lookup.patch \
 "
 
