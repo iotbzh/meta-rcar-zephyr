@@ -1,0 +1,76 @@
+From 1f1d7938cc840f7451d26fde70d3f375edfc8747 Mon Sep 17 00:00:00 2001
+From: Julien Massot <julien.massot@iot.bzh>
+Date: Thu, 3 Dec 2020 17:37:27 +0100
+Subject: [PATCH 08/11] soc: renesas: rcar-rst: Add support for Cortex R7
+
+Allow to set a boot address for the Cortex R7 processor.
+
+Signed-off-by: Julien Massot <julien.massot@iot.bzh>
+---
+ drivers/soc/renesas/rcar-rst.c       | 23 ++++++++++++++++++++++-
+ include/linux/soc/renesas/rcar-rst.h |  2 ++
+ 2 files changed, 24 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/soc/renesas/rcar-rst.c b/drivers/soc/renesas/rcar-rst.c
+index a0caaada0f4c..10f90e769335 100644
+--- a/drivers/soc/renesas/rcar-rst.c
++++ b/drivers/soc/renesas/rcar-rst.c
+@@ -12,6 +12,8 @@
+ 
+ #define WDTRSTCR_RESET		0xA55A0002
+ #define WDTRSTCR		0x0054
++#define CR7BAR                  0x0070
++#define CR7BAREN                BIT(4)
+ 
+ static int rcar_rst_enable_wdt_reset(void __iomem *base)
+ {
+@@ -72,7 +74,7 @@ static const struct of_device_id rcar_rst_matches[] __initconst = {
+ 	{ /* sentinel */ }
+ };
+ 
+-static void __iomem *rcar_rst_base __initdata;
++static void __iomem *rcar_rst_base;
+ static u32 saved_mode __initdata;
+ 
+ static int __init rcar_rst_init(void)
+@@ -126,3 +128,22 @@ int __init rcar_rst_read_mode_pins(u32 *mode)
+ 	*mode = saved_mode;
+ 	return 0;
+ }
++
++int rcar_rst_set_rproc_boot_addr(u32 boot_addr)
++{
++	if (!rcar_rst_base) {
++			return -EIO;
++	}
++
++	if (boot_addr % SZ_4K) {
++		pr_debug("Invalid boot address for remote processor,"
++		       "should be aligned on 4k got %x\n", boot_addr);
++		pr_debug("rounding down to 4k\n");
++		boot_addr -= boot_addr % SZ_4K;
++	}
++
++	boot_addr |= CR7BAREN;
++	iowrite32(boot_addr, rcar_rst_base + CR7BAR);
++
++	return 0;
++}
+diff --git a/include/linux/soc/renesas/rcar-rst.h b/include/linux/soc/renesas/rcar-rst.h
+index 7899a5b8c247..7c97c2c4bba6 100644
+--- a/include/linux/soc/renesas/rcar-rst.h
++++ b/include/linux/soc/renesas/rcar-rst.h
+@@ -4,8 +4,10 @@
+ 
+ #ifdef CONFIG_RST_RCAR
+ int rcar_rst_read_mode_pins(u32 *mode);
++int rcar_rst_set_rproc_boot_addr(u32 boot_addr);
+ #else
+ static inline int rcar_rst_read_mode_pins(u32 *mode) { return -ENODEV; }
++static inline int rcar_rst_set_rproc_boot_addr(u32 boot_addr) { return -ENODEV; }
+ #endif
+ 
+ #endif /* __LINUX_SOC_RENESAS_RCAR_RST_H__ */
+-- 
+2.31.1
+

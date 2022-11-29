@@ -36,7 +36,7 @@ index f2e961f998ca..3ddd426fc969 100644
  	  verified and booted with the help of the Peripheral Authentication
  	  System (PAS) in TrustZone.
  
-+config RCAR_REMOTEPROC
++config RCAR_RPROC
 +	tristate "Renesas R-Car Gen3/Gen4 remoteproc support"
 +	depends on ARCH_RENESAS || COMPILE_TEST
 +	help
@@ -58,7 +58,7 @@ index 0ac256b6c977..5478c7cb9e07 100644
  obj-$(CONFIG_QCOM_WCNSS_PIL)		+= qcom_wcnss_pil.o
  qcom_wcnss_pil-y			+= qcom_wcnss.o
  qcom_wcnss_pil-y			+= qcom_wcnss_iris.o
-+obj-$(CONFIG_RCAR_REMOTEPROC)		+= rcar_rproc.o
++obj-$(CONFIG_RCAR_RPROC)		+= rcar_rproc.o
  obj-$(CONFIG_ST_REMOTEPROC)		+= st_remoteproc.o
  obj-$(CONFIG_ST_SLIM_REMOTEPROC)	+= st_slim_rproc.o
  obj-$(CONFIG_STM32_RPROC)		+= stm32_rproc.o
