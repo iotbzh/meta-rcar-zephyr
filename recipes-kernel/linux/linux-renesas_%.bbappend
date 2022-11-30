@@ -33,6 +33,7 @@ SRC_URI:append:falcon = " \
 #ulcb board
 SRC_URI:append:ulcb = " \
     file://0008-soc-renesas-rcar-rst-Add-support-for-Cortex-R7.patch \
+    file://0001-Add-fix-to-build-kernel-module-rcar_rproc.patch \
 "
 
 #h3ulcb board

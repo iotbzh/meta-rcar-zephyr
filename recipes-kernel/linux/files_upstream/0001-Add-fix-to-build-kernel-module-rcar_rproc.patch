@@ -1,0 +1,23 @@
+From 27cc06d8753a46ae73241fba517630052788570a Mon Sep 17 00:00:00 2001
+From: Ronan Le Martret <ronan.lemartret@iot.bzh>
+Date: Tue, 29 Nov 2022 19:49:27 +0100
+Subject: [PATCH] Add fix to build kernel module rcar_rproc
+
+Signed-off-by: Ronan Le Martret <ronan.lemartret@iot.bzh>
+---
+ drivers/soc/renesas/rcar-rst.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/soc/renesas/rcar-rst.c b/drivers/soc/renesas/rcar-rst.c
+index 956eb45b8d17..e8c886e4b42a 100644
+--- a/drivers/soc/renesas/rcar-rst.c
++++ b/drivers/soc/renesas/rcar-rst.c
+@@ -151,3 +151,5 @@ int rcar_rst_set_rproc_boot_addr(u32 boot_addr)
+ 
+ 	return 0;
+ }
++
++EXPORT_SYMBOL(rcar_rst_set_rproc_boot_addr);
+-- 
+2.38.1
+
