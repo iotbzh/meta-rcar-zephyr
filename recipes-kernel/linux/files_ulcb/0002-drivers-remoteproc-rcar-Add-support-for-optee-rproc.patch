@@ -3,26 +3,12 @@ From: Julien Massot <julien.massot@iot.bzh>
 Date: Fri, 4 Jun 2021 09:16:22 +0200
 Subject: [PATCH 2/3] drivers: remoteproc: rcar: Add support for optee rproc
 
-Let optee manage the lifecycle managent of the CR7.
+Let optee manage the lifecycle managent of the CR7.	
 So that we can verify the fw signature in the secure world.
 ---
- arch/arm64/boot/dts/renesas/r8a77990.dtsi |   2 +-
  drivers/remoteproc/rcar_rproc.c           | 165 +++++++++++++++++++---
- 2 files changed, 150 insertions(+), 17 deletions(-)
+ 1 file changed, 150 insertions(+), 17 deletions(-)
 
-diff --git a/arch/arm64/boot/dts/renesas/r8a77990.dtsi b/arch/arm64/boot/dts/renesas/r8a77990.dtsi
-index 45c120e2362b..a12214b0aae0 100644
---- a/arch/arm64/boot/dts/renesas/r8a77990.dtsi
-+++ b/arch/arm64/boot/dts/renesas/r8a77990.dtsi
-@@ -168,7 +168,7 @@ soc: soc {
- 		ranges;
- 
- 		cr7_rproc: cr7@40040000 {
--			compatible = "renesas,rcar-cr7";
-+			compatible = "renesas,rcar-cr7_optee";
- 			power-domains = <&sysc R8A77990_PD_CR7>;
- 			resets = <&cpg 222>;
- 			status = "disabled";
 diff --git a/drivers/remoteproc/rcar_rproc.c b/drivers/remoteproc/rcar_rproc.c
 index 54827df315f3..c10253770c5f 100644
 --- a/drivers/remoteproc/rcar_rproc.c
