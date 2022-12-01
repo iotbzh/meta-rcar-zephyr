@@ -58,10 +58,10 @@ index 09b70f35852a..18b3ef23487d 100644
 +	status = "okay";
 +};
 diff --git a/arch/arm64/boot/dts/renesas/r8a77960.dtsi b/arch/arm64/boot/dts/renesas/r8a77960.dtsi
-index ae9902d35ea0..b06388c6cd1f 100755
+index f3b591dabd20..4b8ba298a5a3 100644
 --- a/arch/arm64/boot/dts/renesas/r8a77960.dtsi
 +++ b/arch/arm64/boot/dts/renesas/r8a77960.dtsi
-@@ -811,19 +811,11 @@
+@@ -800,11 +800,11 @@ soc {
  		#size-cells = <2>;
  		ranges;
  
@@ -70,14 +70,6 @@ index ae9902d35ea0..b06388c6cd1f 100755
 -				     "renesas,mfis-lock";
 -			reg = <0 0xe6260000 0 0x1000>;
 -			#hwlock-cells = <1>;
--
--			mfis_as: mfis-as {
--				compatible = "renesas,mfis-as-r8a7796",
--					     "renesas,mfis-as";
--				interrupts = <GIC_SPI 180 IRQ_TYPE_LEVEL_HIGH>;
--				interrupt-names = "eicr0";
--				renesas,mfis-ch = <0>;
--			};
 +		cr7_rproc: cr7@40040000 {
 +			compatible = "renesas,rcar-cr7";
 +			power-domains = <&sysc R8A7796_PD_CR7>;
@@ -86,8 +78,8 @@ index ae9902d35ea0..b06388c6cd1f 100755
  		};
  
  		rwdt: watchdog@e6020000 {
-@@ -1088,6 +1080,26 @@
- 			power-domains = <&sysc R8A7796_PD_ALWAYS_ON>;
+@@ -817,6 +817,26 @@ rwdt: watchdog@e6020000 {
+ 			status = "disabled";
  		};
  
 +		mfis: mailbox@e6260400 {
@@ -110,9 +102,9 @@ index ae9902d35ea0..b06388c6cd1f 100755
 +			reg = <0 0xe6260460 0 0x20>;
 +		};
 +
- 		i2c0: i2c@e6500000 {
- 			#address-cells = <1>;
- 			#size-cells = <0>;
+ 		gpio0: gpio@e6050000 {
+ 			compatible = "renesas,gpio-r8a7796",
+ 				     "renesas,rcar-gen3-gpio";
 -- 
 2.31.1
 

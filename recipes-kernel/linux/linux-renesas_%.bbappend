@@ -64,8 +64,10 @@ SRC_URI:append = " \
     file://cr7-rproc.cfg \
     "
 
-#Add
-#SRC_URI:append = " \
-#    file://0001-remoteproc-add-TEE-support.patch \
-#    file://0002-drivers-remoteproc-rcar-Add-support-for-optee-rproc.patch \
-#    "
+#Add remote proc
+
+#Need to be fix.
+#file://0002-drivers-remoteproc-rcar-Add-support-for-optee-rproc.patch
+SRC_URI:append = " \
+    file://0001-remoteproc-add-TEE-support.patch \
+    "
