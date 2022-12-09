@@ -1,0 +1,637 @@
+From fb32aed86cfecbbeb2a4adada6f9d95a4f08adbf Mon Sep 17 00:00:00 2001
+From: Ronan Le Martret <ronan.lemartret@iot.bzh>
+Date: Thu, 8 Dec 2022 18:01:24 +0100
+Subject: [PATCH] DRAFT DEV printk
+
+Signed-off-by: Ronan Le Martret <ronan.lemartret@iot.bzh>
+---
+ drivers/mailbox/rcar-ipcc.c         |  7 +++++++
+ drivers/remoteproc/rcar_rproc.c     |  8 ++++++++
+ drivers/rpmsg/rpmsg_char.c          | 25 +++++++++++++++++++++++++
+ drivers/rpmsg/rpmsg_core.c          | 11 +++++++++++
+ drivers/rpmsg/virtio_rpmsg_bus.c    | 21 +++++++++++++++++++++
+ samples/rpmsg/rpmsg_client_sample.c |  3 +++
+ 6 files changed, 75 insertions(+)
+
+diff --git a/drivers/mailbox/rcar-ipcc.c b/drivers/mailbox/rcar-ipcc.c
+index 73518cd00e9a..1f2c8bec61ac 100644
+--- a/drivers/mailbox/rcar-ipcc.c
++++ b/drivers/mailbox/rcar-ipcc.c
+@@ -33,6 +33,7 @@ struct rcar_ipcc {
+ static inline void rcar_ipcc_set_bits(spinlock_t *lock, void __iomem *reg,
+ 				       u32 mask)
+ {
++	printk("RLM: rcar_ipcc_set_bits\n");
+ 	unsigned long flags;
+ 
+ 	spin_lock_irqsave(lock, flags);
+@@ -43,6 +44,7 @@ static inline void rcar_ipcc_set_bits(spinlock_t *lock, void __iomem *reg,
+ static inline void rcar_ipcc_clr_bits(spinlock_t *lock, void __iomem *reg,
+ 				       u32 mask)
+ {
++	printk("RLM: rcar_ipcc_clr_bits\n");
+ 	unsigned long flags;
+ 
+ 	spin_lock_irqsave(lock, flags);
+@@ -52,6 +54,7 @@ static inline void rcar_ipcc_clr_bits(spinlock_t *lock, void __iomem *reg,
+ 
+ static irqreturn_t rcar_ipcc_rx_irq(int irq, void *data)
+ {
++	printk("RLM: rcar_ipcc_rx_irq\n");
+ 	struct rcar_ipcc *ipcc = data;
+ 	uint32_t status, chan = 1;
+ 	irqreturn_t ret = IRQ_NONE;
+@@ -73,6 +76,7 @@ static irqreturn_t rcar_ipcc_rx_irq(int irq, void *data)
+ 
+ static irqreturn_t rcar_ipcc_tx_irq(int irq, void *data)
+ {
++	printk("RLM: rcar_ipcc_tx_irq\n");
+ 	struct rcar_ipcc *ipcc = data;
+ 	irqreturn_t ret = IRQ_NONE;
+ 
+@@ -92,6 +96,7 @@ static irqreturn_t rcar_ipcc_tx_irq(int irq, void *data)
+ 
+ static int rcar_ipcc_send_data(struct mbox_chan *link, void *data)
+ {
++	printk("RLM: rcar_ipcc_send_data\n");
+ 	struct rcar_ipcc *ipcc = container_of(link->mbox, struct rcar_ipcc,
+ 					       controller);
+ 	uint32_t status;
+@@ -110,6 +115,7 @@ static int rcar_ipcc_send_data(struct mbox_chan *link, void *data)
+ 
+ static int rcar_ipcc_startup(struct mbox_chan *link)
+ {
++	printk("RLM: rcar_ipcc_startup\n");
+ 	struct rcar_ipcc *ipcc = container_of(link->mbox, struct rcar_ipcc,
+ 					       controller);
+ 	int ret;
+@@ -139,6 +145,7 @@ static const struct mbox_chan_ops rcar_ipcc_ops = {
+ 
+ static int rcar_ipcc_probe(struct platform_device *pdev)
+ {
++	printk("RLM: rcar_ipcc_probe\n");
+ 	struct device *dev = &pdev->dev;
+ 	struct device_node *np = dev->of_node;
+ 	struct rcar_ipcc *ipcc;
+diff --git a/drivers/remoteproc/rcar_rproc.c b/drivers/remoteproc/rcar_rproc.c
+index aa86154109c7..1c179683524b 100644
+--- a/drivers/remoteproc/rcar_rproc.c
++++ b/drivers/remoteproc/rcar_rproc.c
+@@ -21,6 +21,7 @@ struct rcar_rproc {
+ static int rcar_rproc_mem_alloc(struct rproc *rproc,
+ 				 struct rproc_mem_entry *mem)
+ {
++	printk("RLM: rcar_rproc_mem_alloc\n");
+ 	struct device *dev = &rproc->dev;
+ 	void *va;
+ 
+@@ -41,6 +42,7 @@ static int rcar_rproc_mem_alloc(struct rproc *rproc,
+ static int rcar_rproc_mem_release(struct rproc *rproc,
+ 				   struct rproc_mem_entry *mem)
+ {
++	printk("RLM: rcar_rproc_mem_release\n");
+ 	dev_dbg(&rproc->dev, "unmap memory: %pa\n", &mem->dma);
+ 	iounmap(mem->va);
+ 
+@@ -49,6 +51,7 @@ static int rcar_rproc_mem_release(struct rproc *rproc,
+ 
+ static int rcar_rproc_prepare(struct rproc *rproc)
+ {
++	printk("RLM: rcar_rproc_prepare\n");
+ 	struct device *dev = rproc->dev.parent;
+ 	struct device_node *np = dev->of_node;
+ 	struct of_phandle_iterator it;
+@@ -90,6 +93,7 @@ static int rcar_rproc_prepare(struct rproc *rproc)
+ 
+ static int rcar_rproc_parse_fw(struct rproc *rproc, const struct firmware *fw)
+ {
++	printk("RLM: rcar_rproc_parse_fw\n");
+ 	int ret;
+ 
+ 	ret = rproc_elf_load_rsc_table(rproc, fw);
+@@ -101,6 +105,7 @@ static int rcar_rproc_parse_fw(struct rproc *rproc, const struct firmware *fw)
+ 
+ static int rcar_rproc_start(struct rproc *rproc)
+ {
++	printk("RLM: rcar_rproc_start\n");
+ 	struct rcar_rproc *priv = rproc->priv;
+ 	int err;
+ 
+@@ -122,6 +127,7 @@ static int rcar_rproc_start(struct rproc *rproc)
+ 
+ static int rcar_rproc_stop(struct rproc *rproc)
+ {
++	printk("RLM: rcar_rproc_stop\n");
+ 	struct rcar_rproc *priv = rproc->priv;
+ 	int err;
+ 
+@@ -146,6 +152,7 @@ static struct rproc_ops rcar_rproc_ops = {
+ 
+ static int rcar_rproc_probe(struct platform_device *pdev)
+ {
++	printk("RLM: rcar_rproc_probe\n");
+ 	struct device *dev = &pdev->dev;
+ 	struct device_node *np = dev->of_node;
+ 	struct rcar_rproc *priv;
+@@ -194,6 +201,7 @@ static int rcar_rproc_probe(struct platform_device *pdev)
+ 
+ static int rcar_rproc_remove(struct platform_device *pdev)
+ {
++	printk("RLM: rcar_rproc_remove\n");
+ 	struct device *dev = &pdev->dev;
+ 
+ 	pm_runtime_disable(dev);
+diff --git a/drivers/rpmsg/rpmsg_char.c b/drivers/rpmsg/rpmsg_char.c
+index 4a38e23b47fc..c4c6c12bc4a4 100644
+--- a/drivers/rpmsg/rpmsg_char.c
++++ b/drivers/rpmsg/rpmsg_char.c
+@@ -80,6 +80,7 @@ struct rpmsg_eptdev {
+ 
+ static int rpmsg_eptdev_destroy(struct device *dev, void *data)
+ {
++	printk("RLM: rpmsg_eptdev_destroy\n");
+ 	struct rpmsg_eptdev *eptdev = dev_to_eptdev(dev);
+ 
+ 	mutex_lock(&eptdev->ept_lock);
+@@ -101,6 +102,7 @@ static int rpmsg_eptdev_destroy(struct device *dev, void *data)
+ static int rpmsg_ept_cb(struct rpmsg_device *rpdev, void *buf, int len,
+ 			void *priv, u32 addr)
+ {
++	printk("RLM: rpmsg_ept_cb\n");
+ 	struct rpmsg_eptdev *eptdev = priv;
+ 	struct sk_buff *skb;
+ 
+@@ -122,6 +124,7 @@ static int rpmsg_ept_cb(struct rpmsg_device *rpdev, void *buf, int len,
+ 
+ static int rpmsg_eptdev_open(struct inode *inode, struct file *filp)
+ {
++	printk("RLM: rpmsg_eptdev_open\n");
+ 	struct rpmsg_eptdev *eptdev = cdev_to_eptdev(inode->i_cdev);
+ #ifndef CONFIG_RPMSG_RCAR_CHAR
+ 	struct rpmsg_endpoint *ept;
+@@ -148,6 +151,7 @@ static int rpmsg_eptdev_open(struct inode *inode, struct file *filp)
+ 
+ static int rpmsg_eptdev_release(struct inode *inode, struct file *filp)
+ {
++	printk("RLM: rpmsg_eptdev_release\n");
+ 	struct rpmsg_eptdev *eptdev = cdev_to_eptdev(inode->i_cdev);
+ 	struct device *dev = &eptdev->dev;
+ 
+@@ -169,6 +173,7 @@ static int rpmsg_eptdev_release(struct inode *inode, struct file *filp)
+ 
+ static ssize_t rpmsg_eptdev_read_iter(struct kiocb *iocb, struct iov_iter *to)
+ {
++	printk("RLM: rpmsg_eptdev_read_iter\n");
+ 	struct file *filp = iocb->ki_filp;
+ 	struct rpmsg_eptdev *eptdev = filp->private_data;
+ 	unsigned long flags;
+@@ -217,6 +222,7 @@ static ssize_t rpmsg_eptdev_read_iter(struct kiocb *iocb, struct iov_iter *to)
+ static ssize_t rpmsg_eptdev_write_iter(struct kiocb *iocb,
+ 				       struct iov_iter *from)
+ {
++	printk("RLM: rpmsg_eptdev_write_iter\n");
+ 	struct file *filp = iocb->ki_filp;
+ 	struct rpmsg_eptdev *eptdev = filp->private_data;
+ 	size_t len = iov_iter_count(from);
+@@ -257,6 +263,7 @@ static ssize_t rpmsg_eptdev_write_iter(struct kiocb *iocb,
+ 
+ static __poll_t rpmsg_eptdev_poll(struct file *filp, poll_table *wait)
+ {
++	printk("RLM: rpmsg_eptdev_poll\n");
+ 	struct rpmsg_eptdev *eptdev = filp->private_data;
+ 	__poll_t mask = 0;
+ 
+@@ -276,6 +283,7 @@ static __poll_t rpmsg_eptdev_poll(struct file *filp, poll_table *wait)
+ static long rpmsg_eptdev_ioctl(struct file *fp, unsigned int cmd,
+ 			       unsigned long arg)
+ {
++	printk("RLM: rpmsg_eptdev_ioctl\n");
+ 	struct rpmsg_eptdev *eptdev = fp->private_data;
+ 
+ 	if (cmd != RPMSG_DESTROY_EPT_IOCTL)
+@@ -298,6 +306,7 @@ static const struct file_operations rpmsg_eptdev_fops = {
+ static ssize_t name_show(struct device *dev, struct device_attribute *attr,
+ 			 char *buf)
+ {
++	printk("RLM: name_show\n");
+ 	struct rpmsg_eptdev *eptdev = dev_get_drvdata(dev);
+ 
+ 	return sprintf(buf, "%s\n", eptdev->chinfo.name);
+@@ -307,6 +316,7 @@ static DEVICE_ATTR_RO(name);
+ static ssize_t src_show(struct device *dev, struct device_attribute *attr,
+ 			 char *buf)
+ {
++	printk("RLM: src_show\n");
+ 	struct rpmsg_eptdev *eptdev = dev_get_drvdata(dev);
+ 
+ 	return sprintf(buf, "%d\n", eptdev->chinfo.src);
+@@ -316,6 +326,7 @@ static DEVICE_ATTR_RO(src);
+ static ssize_t dst_show(struct device *dev, struct device_attribute *attr,
+ 			 char *buf)
+ {
++	printk("RLM: dst_show\n");
+ 	struct rpmsg_eptdev *eptdev = dev_get_drvdata(dev);
+ 
+ 	return sprintf(buf, "%d\n", eptdev->chinfo.dst);
+@@ -332,6 +343,7 @@ ATTRIBUTE_GROUPS(rpmsg_eptdev);
+ 
+ static void rpmsg_eptdev_release_device(struct device *dev)
+ {
++	printk("RLM: rpmsg_eptdev_release_device\n");
+ 	struct rpmsg_eptdev *eptdev = dev_to_eptdev(dev);
+ 
+ 	ida_simple_remove(&rpmsg_ept_ida, dev->id);
+@@ -344,10 +356,12 @@ static void rpmsg_eptdev_release_device(struct device *dev)
+ static int rpmsg_eptdev_create(struct rpmsg_ctrldev *ctrldev,
+ 			       struct rpmsg_channel_info chinfo)
+ {
++	printk("RLM: BAD rpmsg_eptdev_create\n");
+ 	struct rpmsg_device *rpdev = ctrldev->rpdev;
+ #else
+ static int rpmsg_eptdev_create(struct rpmsg_device *rpdev)
+ {
++	printk("RLM: GOOD rpmsg_eptdev_create\n");
+ #endif /* CONFIG_RPMSG_RCAR_CHAR */
+ 	struct rpmsg_eptdev *eptdev;
+ 	struct device *dev;
+@@ -427,6 +441,7 @@ static int rpmsg_eptdev_create(struct rpmsg_device *rpdev)
+ 
+ static int rpmsg_ctrldev_open(struct inode *inode, struct file *filp)
+ {
++	printk("RLM: rpmsg_ctrldev_open\n");
+ 	struct rpmsg_ctrldev *ctrldev = cdev_to_ctrldev(inode->i_cdev);
+ 
+ 	get_device(&ctrldev->dev);
+@@ -437,6 +452,7 @@ static int rpmsg_ctrldev_open(struct inode *inode, struct file *filp)
+ 
+ static int rpmsg_ctrldev_release(struct inode *inode, struct file *filp)
+ {
++	printk("RLM: rpmsg_ctrldev_release\n");
+ 	struct rpmsg_ctrldev *ctrldev = cdev_to_ctrldev(inode->i_cdev);
+ 
+ 	put_device(&ctrldev->dev);
+@@ -448,6 +464,7 @@ static int rpmsg_ctrldev_release(struct inode *inode, struct file *filp)
+ static long rpmsg_ctrldev_ioctl(struct file *fp, unsigned int cmd,
+ 				unsigned long arg)
+ {
++	printk("RLM: rpmsg_ctrldev_ioctl\n");
+ 	struct rpmsg_ctrldev *ctrldev = fp->private_data;
+ 	void __user *argp = (void __user *)arg;
+ 	struct rpmsg_endpoint_info eptinfo;
+@@ -477,6 +494,7 @@ static const struct file_operations rpmsg_ctrldev_fops = {
+ 
+ static void rpmsg_ctrldev_release_device(struct device *dev)
+ {
++	printk("RLM: rpmsg_ctrldev_release_device\n");
+ 	struct rpmsg_ctrldev *ctrldev = dev_to_ctrldev(dev);
+ 
+ 	ida_simple_remove(&rpmsg_ctrl_ida, dev->id);
+@@ -487,6 +505,7 @@ static void rpmsg_ctrldev_release_device(struct device *dev)
+ 
+ static int rpmsg_chrdev_probe(struct rpmsg_device *rpdev)
+ {
++	printk("RLM: rpmsg_chrdev_probe\n");
+ 	struct rpmsg_ctrldev *ctrldev;
+ 	struct device *dev;
+ 	int ret;
+@@ -546,6 +565,7 @@ static int rpmsg_chrdev_probe(struct rpmsg_device *rpdev)
+ 
+ static void rpmsg_chrdev_remove(struct rpmsg_device *rpdev)
+ {
++	printk("RLM: rpmsg_chrdev_remove\n");
+ 	struct rpmsg_ctrldev *ctrldev = dev_get_drvdata(&rpdev->dev);
+ 	int ret;
+ 
+@@ -584,6 +604,7 @@ static struct rpmsg_driver rpmsg_chrdev_driver = {
+ 
+ static int rpmsg_char_init(void)
+ {
++	printk("RLM: rpmsg_char_init 1\n");
+ 	int ret;
+ 
+ 	ret = alloc_chrdev_region(&rpmsg_major, 0, RPMSG_DEV_MAX, "rpmsg");
+@@ -592,6 +613,7 @@ static int rpmsg_char_init(void)
+ 		return ret;
+ 	}
+ 
++	printk("RLM: rpmsg_char_init 2\n");
+ 	rpmsg_class = class_create(THIS_MODULE, "rpmsg");
+ 	if (IS_ERR(rpmsg_class)) {
+ 		pr_err("failed to create rpmsg class\n");
+@@ -599,6 +621,7 @@ static int rpmsg_char_init(void)
+ 		return PTR_ERR(rpmsg_class);
+ 	}
+ 
++	printk("RLM: rpmsg_char_init 3\n");
+ 	ret = register_rpmsg_driver(&rpmsg_chrdev_driver);
+ 	if (ret < 0) {
+ 		pr_err("rpmsgchr: failed to register rpmsg driver\n");
+@@ -606,12 +629,14 @@ static int rpmsg_char_init(void)
+ 		unregister_chrdev_region(rpmsg_major, RPMSG_DEV_MAX);
+ 	}
+ 
++	printk("RLM: rpmsg_char_init 4\n");
+ 	return ret;
+ }
+ postcore_initcall(rpmsg_char_init);
+ 
+ static void rpmsg_chrdev_exit(void)
+ {
++	printk("RLM: rpmsg_chrdev_exit\n");
+ 	unregister_rpmsg_driver(&rpmsg_chrdev_driver);
+ 	class_destroy(rpmsg_class);
+ 	unregister_chrdev_region(rpmsg_major, RPMSG_DEV_MAX);
+diff --git a/drivers/rpmsg/rpmsg_core.c b/drivers/rpmsg/rpmsg_core.c
+index 91de940896e3..353635b88ff3 100644
+--- a/drivers/rpmsg/rpmsg_core.c
++++ b/drivers/rpmsg/rpmsg_core.c
+@@ -64,6 +64,7 @@ struct rpmsg_endpoint *rpmsg_create_ept(struct rpmsg_device *rpdev,
+ 					rpmsg_rx_cb_t cb, void *priv,
+ 					struct rpmsg_channel_info chinfo)
+ {
++	printk("RLM: rpmsg_create_ept\n");
+ 	if (WARN_ON(!rpdev))
+ 		return NULL;
+ 
+@@ -106,6 +107,7 @@ EXPORT_SYMBOL(rpmsg_destroy_ept);
+  */
+ int rpmsg_send(struct rpmsg_endpoint *ept, void *data, int len)
+ {
++	printk("RLM: rpmsg_send\n");
+ 	if (WARN_ON(!ept))
+ 		return -EINVAL;
+ 	if (!ept->ops->send)
+@@ -135,6 +137,7 @@ EXPORT_SYMBOL(rpmsg_send);
+  */
+ int rpmsg_sendto(struct rpmsg_endpoint *ept, void *data, int len, u32 dst)
+ {
++	printk("RLM: rpmsg_sendto\n");
+ 	if (WARN_ON(!ept))
+ 		return -EINVAL;
+ 	if (!ept->ops->sendto)
+@@ -290,6 +293,7 @@ EXPORT_SYMBOL(rpmsg_trysend_offchannel);
+  */
+ static int rpmsg_device_match(struct device *dev, void *data)
+ {
++	printk("RLM: rpmsg_device_match\n");
+ 	struct rpmsg_channel_info *chinfo = data;
+ 	struct rpmsg_device *rpdev = to_rpmsg_device(dev);
+ 
+@@ -309,6 +313,7 @@ static int rpmsg_device_match(struct device *dev, void *data)
+ struct device *rpmsg_find_device(struct device *parent,
+ 				 struct rpmsg_channel_info *chinfo)
+ {
++	printk("RLM: rpmsg_find_device\n");
+ 	return device_find_child(parent, chinfo, rpmsg_device_match);
+ 
+ }
+@@ -399,12 +404,14 @@ ATTRIBUTE_GROUPS(rpmsg_dev);
+ static inline int rpmsg_id_match(const struct rpmsg_device *rpdev,
+ 				  const struct rpmsg_device_id *id)
+ {
++	printk("RLM: rpmsg_id_match\n");
+ 	return strncmp(id->name, rpdev->id.name, RPMSG_NAME_SIZE) == 0;
+ }
+ 
+ /* match rpmsg channel and rpmsg driver */
+ static int rpmsg_dev_match(struct device *dev, struct device_driver *drv)
+ {
++	printk("RLM: rpmsg_dev_match\n");
+ 	struct rpmsg_device *rpdev = to_rpmsg_device(dev);
+ 	struct rpmsg_driver *rpdrv = to_rpmsg_driver(drv);
+ 	const struct rpmsg_device_id *ids = rpdrv->id_table;
+@@ -444,6 +451,7 @@ static int rpmsg_uevent(struct device *dev, struct kobj_uevent_env *env)
+  */
+ static int rpmsg_dev_probe(struct device *dev)
+ {
++	printk("RLM: rpmsg_dev_probe\n");
+ 	struct rpmsg_device *rpdev = to_rpmsg_device(dev);
+ 	struct rpmsg_driver *rpdrv = to_rpmsg_driver(rpdev->dev.driver);
+ 	struct rpmsg_channel_info chinfo = {};
+@@ -486,6 +494,7 @@ static int rpmsg_dev_probe(struct device *dev)
+ 
+ static int rpmsg_dev_remove(struct device *dev)
+ {
++	printk("RLM: rpmsg_dev_remove\n");
+ 	struct rpmsg_device *rpdev = to_rpmsg_device(dev);
+ 	struct rpmsg_driver *rpdrv = to_rpmsg_driver(rpdev->dev.driver);
+ 	int err = 0;
+@@ -515,6 +524,7 @@ static struct bus_type rpmsg_bus = {
+ 
+ int rpmsg_register_device(struct rpmsg_device *rpdev)
+ {
++	printk("RLM: rpmsg_register_device\n");
+ 	struct device *dev = &rpdev->dev;
+ 	int ret;
+ 
+@@ -563,6 +573,7 @@ EXPORT_SYMBOL(rpmsg_unregister_device);
+  */
+ int __register_rpmsg_driver(struct rpmsg_driver *rpdrv, struct module *owner)
+ {
++	printk("RLM: __register_rpmsg_driver 3\n");
+ 	rpdrv->drv.bus = &rpmsg_bus;
+ 	rpdrv->drv.owner = owner;
+ 	return driver_register(&rpdrv->drv);
+diff --git a/drivers/rpmsg/virtio_rpmsg_bus.c b/drivers/rpmsg/virtio_rpmsg_bus.c
+index 7d7ed4e5cce7..db4eb736cf39 100644
+--- a/drivers/rpmsg/virtio_rpmsg_bus.c
++++ b/drivers/rpmsg/virtio_rpmsg_bus.c
+@@ -204,6 +204,7 @@ static const struct rpmsg_endpoint_ops virtio_endpoint_ops = {
+ static void
+ rpmsg_sg_init(struct scatterlist *sg, void *cpu_addr, unsigned int len)
+ {
++	printk("RLM: rpmsg_sg_init\n");
+ 	if (is_vmalloc_addr(cpu_addr)) {
+ 		sg_init_table(sg, 1);
+ 		sg_set_page(sg, vmalloc_to_page(cpu_addr), len,
+@@ -225,6 +226,7 @@ rpmsg_sg_init(struct scatterlist *sg, void *cpu_addr, unsigned int len)
+  */
+ static void __ept_release(struct kref *kref)
+ {
++	printk("RLM: __ept_release\n");
+ 	struct rpmsg_endpoint *ept = container_of(kref, struct rpmsg_endpoint,
+ 						  refcount);
+ 	/*
+@@ -240,6 +242,7 @@ static struct rpmsg_endpoint *__rpmsg_create_ept(struct virtproc_info *vrp,
+ 						 rpmsg_rx_cb_t cb,
+ 						 void *priv, u32 addr)
+ {
++	printk("RLM: __rpmsg_create_ept\n");
+ 	int id_min, id_max, id;
+ 	struct rpmsg_endpoint *ept;
+ 	struct device *dev = rpdev ? &rpdev->dev : &vrp->vdev->dev;
+@@ -290,6 +293,7 @@ static struct rpmsg_endpoint *virtio_rpmsg_create_ept(struct rpmsg_device *rpdev
+ 						      void *priv,
+ 						      struct rpmsg_channel_info chinfo)
+ {
++	printk("RLM: virtio_rpmsg_create_ept\n");
+ 	struct virtio_rpmsg_channel *vch = to_virtio_rpmsg_channel(rpdev);
+ 
+ 	return __rpmsg_create_ept(vch->vrp, rpdev, cb, priv, chinfo.src);
+@@ -308,6 +312,7 @@ static struct rpmsg_endpoint *virtio_rpmsg_create_ept(struct rpmsg_device *rpdev
+ static void
+ __rpmsg_destroy_ept(struct virtproc_info *vrp, struct rpmsg_endpoint *ept)
+ {
++	printk("RLM: __rpmsg_destroy_ept\n");
+ 	/* make sure new inbound messages can't find this ept anymore */
+ 	mutex_lock(&vrp->endpoints_lock);
+ 	idr_remove(&vrp->endpoints, ept->addr);
+@@ -323,6 +328,7 @@ __rpmsg_destroy_ept(struct virtproc_info *vrp, struct rpmsg_endpoint *ept)
+ 
+ static void virtio_rpmsg_destroy_ept(struct rpmsg_endpoint *ept)
+ {
++	printk("RLM: virtio_rpmsg_destroy_ept\n");
+ 	struct virtio_rpmsg_channel *vch = to_virtio_rpmsg_channel(ept->rpdev);
+ 
+ 	__rpmsg_destroy_ept(vch->vrp, ept);
+@@ -330,6 +336,7 @@ static void virtio_rpmsg_destroy_ept(struct rpmsg_endpoint *ept)
+ 
+ static int virtio_rpmsg_announce_create(struct rpmsg_device *rpdev)
+ {
++	printk("RLM: virtio_rpmsg_announce_create\n");
+ 	struct virtio_rpmsg_channel *vch = to_virtio_rpmsg_channel(rpdev);
+ 	struct virtproc_info *vrp = vch->vrp;
+ 	struct device *dev = &rpdev->dev;
+@@ -354,6 +361,7 @@ static int virtio_rpmsg_announce_create(struct rpmsg_device *rpdev)
+ 
+ static int virtio_rpmsg_announce_destroy(struct rpmsg_device *rpdev)
+ {
++	printk("RLM: virtio_rpmsg_announce_destroy\n");
+ 	struct virtio_rpmsg_channel *vch = to_virtio_rpmsg_channel(rpdev);
+ 	struct virtproc_info *vrp = vch->vrp;
+ 	struct device *dev = &rpdev->dev;
+@@ -384,6 +392,7 @@ static const struct rpmsg_device_ops virtio_rpmsg_ops = {
+ 
+ static void virtio_rpmsg_release_device(struct device *dev)
+ {
++	printk("RLM: virtio_rpmsg_release_device\n");
+ 	struct rpmsg_device *rpdev = to_rpmsg_device(dev);
+ 	struct virtio_rpmsg_channel *vch = to_virtio_rpmsg_channel(rpdev);
+ 
+@@ -398,6 +407,7 @@ static void virtio_rpmsg_release_device(struct device *dev)
+ static struct rpmsg_device *rpmsg_create_channel(struct virtproc_info *vrp,
+ 						 struct rpmsg_channel_info *chinfo)
+ {
++	printk("RLM: rpmsg_create_channel\n");
+ 	struct virtio_rpmsg_channel *vch;
+ 	struct rpmsg_device *rpdev;
+ 	struct device *tmp, *dev = &vrp->vdev->dev;
+@@ -446,6 +456,7 @@ static struct rpmsg_device *rpmsg_create_channel(struct virtproc_info *vrp,
+ /* super simple buffer "allocator" that is just enough for now */
+ static void *get_a_tx_buf(struct virtproc_info *vrp)
+ {
++	printk("RLM: get_a_tx_buf\n");
+ 	unsigned int len;
+ 	void *ret;
+ 
+@@ -485,6 +496,7 @@ static void *get_a_tx_buf(struct virtproc_info *vrp)
+  */
+ static void rpmsg_upref_sleepers(struct virtproc_info *vrp)
+ {
++	printk("RLM: rpmsg_upref_sleepers\n");
+ 	/* support multiple concurrent senders */
+ 	mutex_lock(&vrp->tx_lock);
+ 
+@@ -512,6 +524,7 @@ static void rpmsg_upref_sleepers(struct virtproc_info *vrp)
+  */
+ static void rpmsg_downref_sleepers(struct virtproc_info *vrp)
+ {
++	printk("RLM: rpmsg_downref_sleepers\n");
+ 	/* support multiple concurrent senders */
+ 	mutex_lock(&vrp->tx_lock);
+ 
+@@ -561,6 +574,7 @@ static int rpmsg_send_offchannel_raw(struct rpmsg_device *rpdev,
+ 				     u32 src, u32 dst,
+ 				     void *data, int len, bool wait)
+ {
++	printk("RLM: rpmsg_send_offchannel_raw\n");
+ 	struct virtio_rpmsg_channel *vch = to_virtio_rpmsg_channel(rpdev);
+ 	struct virtproc_info *vrp = vch->vrp;
+ 	struct device *dev = &rpdev->dev;
+@@ -657,6 +671,7 @@ static int rpmsg_send_offchannel_raw(struct rpmsg_device *rpdev,
+ 
+ static int virtio_rpmsg_send(struct rpmsg_endpoint *ept, void *data, int len)
+ {
++	printk("RLM: virtio_rpmsg_send\n");
+ 	struct rpmsg_device *rpdev = ept->rpdev;
+ 	u32 src = ept->addr, dst = rpdev->dst;
+ 
+@@ -666,6 +681,7 @@ static int virtio_rpmsg_send(struct rpmsg_endpoint *ept, void *data, int len)
+ static int virtio_rpmsg_sendto(struct rpmsg_endpoint *ept, void *data, int len,
+ 			       u32 dst)
+ {
++	printk("RLM: virtio_rpmsg_sendto\n");
+ 	struct rpmsg_device *rpdev = ept->rpdev;
+ 	u32 src = ept->addr;
+ 
+@@ -708,6 +724,7 @@ static int virtio_rpmsg_trysend_offchannel(struct rpmsg_endpoint *ept, u32 src,
+ static int rpmsg_recv_single(struct virtproc_info *vrp, struct device *dev,
+ 			     struct rpmsg_hdr *msg, unsigned int len)
+ {
++	printk("RLM: rpmsg_recv_single\n");
+ 	struct rpmsg_endpoint *ept;
+ 	struct scatterlist sg;
+ 	unsigned int msg_len = virtio16_to_cpu(vrp->vdev, msg->len);
+@@ -775,6 +792,7 @@ static int rpmsg_recv_single(struct virtproc_info *vrp, struct device *dev,
+ /* called when an rx buffer is used, and it's time to digest a message */
+ static void rpmsg_recv_done(struct virtqueue *rvq)
+ {
++	printk("RLM: rpmsg_recv_done\n");
+ 	struct virtproc_info *vrp = rvq->vdev->priv;
+ 	struct device *dev = &rvq->vdev->dev;
+ 	struct rpmsg_hdr *msg;
+@@ -825,6 +843,7 @@ static void rpmsg_xmit_done(struct virtqueue *svq)
+ static int rpmsg_ns_cb(struct rpmsg_device *rpdev, void *data, int len,
+ 		       void *priv, u32 src)
+ {
++	printk("RLM: rpmsg_ns_cb\n");
+ 	struct rpmsg_ns_msg *msg = data;
+ 	struct rpmsg_device *newch;
+ 	struct rpmsg_channel_info chinfo;
+@@ -879,6 +898,7 @@ static int rpmsg_ns_cb(struct rpmsg_device *rpdev, void *data, int len,
+ 
+ static int rpmsg_probe(struct virtio_device *vdev)
+ {
++	printk("RLM: rpmsg_probe\n");
+ 	vq_callback_t *vq_cbs[] = { rpmsg_recv_done, rpmsg_xmit_done };
+ 	static const char * const names[] = { "input", "output" };
+ 	struct virtqueue *vqs[2];
+@@ -1008,6 +1028,7 @@ static int rpmsg_remove_device(struct device *dev, void *data)
+ 
+ static void rpmsg_remove(struct virtio_device *vdev)
+ {
++	printk("RLM: rpmsg_remove\n");
+ 	struct virtproc_info *vrp = vdev->priv;
+ 	size_t total_buf_space = vrp->num_bufs * vrp->buf_size;
+ 	int ret;
+diff --git a/samples/rpmsg/rpmsg_client_sample.c b/samples/rpmsg/rpmsg_client_sample.c
+index ae5081662283..4ec7ff0112ad 100644
+--- a/samples/rpmsg/rpmsg_client_sample.c
++++ b/samples/rpmsg/rpmsg_client_sample.c
+@@ -25,6 +25,7 @@ struct instance_data {
+ static int rpmsg_sample_cb(struct rpmsg_device *rpdev, void *data, int len,
+ 						void *priv, u32 src)
+ {
++	printk("RLM: rpmsg_sample_cb\n");
+ 	int ret;
+ 	struct instance_data *idata = dev_get_drvdata(&rpdev->dev);
+ 
+@@ -50,6 +51,7 @@ static int rpmsg_sample_cb(struct rpmsg_device *rpdev, void *data, int len,
+ 
+ static int rpmsg_sample_probe(struct rpmsg_device *rpdev)
+ {
++	printk("RLM: rpmsg_sample_probe\n");
+ 	int ret;
+ 	struct instance_data *idata;
+ 
+@@ -74,6 +76,7 @@ static int rpmsg_sample_probe(struct rpmsg_device *rpdev)
+ 
+ static void rpmsg_sample_remove(struct rpmsg_device *rpdev)
+ {
++	printk("RLM: rpmsg_sample_remove\n");
+ 	dev_info(&rpdev->dev, "rpmsg sample client driver is removed\n");
+ }
+ 
+-- 
+2.38.1
+

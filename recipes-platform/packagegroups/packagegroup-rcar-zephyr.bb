@@ -9,7 +9,6 @@ PR = "r1"
 
 RDEPENDS:${PN} = "\
     kernel-module-rpmsg-client-sample \
-    kernel-module-rcar-ipcc \
     zephyr-demo \
     rpmsg-echo-test \
     kernel-devicetree \

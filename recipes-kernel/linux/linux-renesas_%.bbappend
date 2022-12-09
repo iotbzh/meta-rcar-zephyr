@@ -5,6 +5,7 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/files_falcon:"
 FILESEXTRAPATHS:prepend := "${THISDIR}/files_h3ulcb:"
 FILESEXTRAPATHS:prepend := "${THISDIR}/files_m3ulcb:"
 FILESEXTRAPATHS:prepend := "${THISDIR}/files_ulcb:"
+FILESEXTRAPATHS:prepend := "${THISDIR}/tmp_2_del:"
 
 #From upstream
 #Patch: rcar_rst_set_gen4_rproc_boot_addr need to be check
@@ -67,7 +68,11 @@ SRC_URI:append = " \
 #Add remote proc
 
 #Need to be fix.
-#file://0002-drivers-remoteproc-rcar-Add-support-for-optee-rproc.patch
+#file://0002-drivers-remoteproc-rcar-Add-support-for-optee-rproc.patch 
 SRC_URI:append = " \
     file://0001-remoteproc-add-TEE-support.patch \
+    "
+
+SRC_URI:append = " \
+    file://0001-DRAFT-DEV-printk.patch \
     "
